@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="abi_align.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="costabs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="decode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="fmt123.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="frame.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="gapless.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="getbits.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="getcpuflags.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="icy.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="icy2utf8.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="id3.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="index.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mangle.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mpeghead.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mpg123lib_intern.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="newhuffman.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="optimize.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="parse.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="reader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="sample.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="swap_bytes_impl.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="synth.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="synth_8bit.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="synth_mono.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="synth_ntom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="true.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="compat\compat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="compat\wpathconv.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="l2tables.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="l3tabs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="l3bandgain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="l12tabs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dct64.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="format.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="frame.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="icy.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="icy2utf8.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="id3.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="index.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="libmpg123.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="optimize.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="parse.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="readers.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="synth.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="synth_8bit.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="tabinit.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="compat\compat_dl.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="compat\compat_str.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="compat\compat.c">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="layer1.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="layer2.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="layer3.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ntom.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="stringbuf.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="equalizer.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="synth_real.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="synth_s32.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
