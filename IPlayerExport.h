@@ -13,6 +13,12 @@ extern "C" bool __declspec(dllexport) GetMP3Info(LPWSTR file, MP3Info **outInfo,
 extern "C" __declspec(dllexport) MP3Info*  GetMusicInfo(LPWSTR file, BOOL isWav);
 extern "C" void __declspec(dllexport) DestroyMusicInfo(MP3Info* lastInfo);
 
+/*获取音频文件的时长
+* file ：文件路径
+* 返回：音频时长（秒）
+*/
+extern "C" double __declspec(dllexport) GetAudioDurationFast(LPWSTR file);
+
 //创建 播放器实例
 //*你的程序主窗口句柄
 CSoundPlayer * CreateIPlayer(HWND hWnd);

@@ -71,7 +71,8 @@ bool IPlayer::Open(LPWSTR file)
 				m_decoder->Close();
 				return err(L"User canceled play.");
 			}
-			m_outputer->Create(hostHWnd, i1, i2, i3);
+			if (!m_outputer->Create(hostHWnd, i1, i2, i3))
+				return false;
 
 			if (playerVol != m_outputer->GetVol())m_outputer->SetVol(playerVol);
 
@@ -549,7 +550,7 @@ TStreamFormat IPlayer::GetFileFormat(const wchar_t * pchFileName)
 	if (ReadFile(hFile, tmp, 8, &dwRead, NULL) && dwRead == 8)
 	{
 		const char wmaHead[8] = {
-			0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11
+			0x30, 0x26, (char)0xb2, (char)0x75, (char)0x8e, (char)0x66, (char)0xcf, (char)0x11
 		};
 		if (strncmp(tmp, wmaHead, sizeof(wmaHead)) == 0)
 			RETURN_TYPE(sfWma)
@@ -796,7 +797,7 @@ bool CDecoderPluginReal::operator!=(const LPWSTR right)
 
 #pragma region Fast audio duration Reader
 
-int IPlayer::GetAudioDurationFast(LPWSTR file)
+double IPlayer::GetAudioDurationFast(LPWSTR file)
 {
 	auto type = IPlayer::GetFileFormat(file);
 	switch (type)
@@ -823,21 +824,48 @@ int IPlayer::GetAudioDurationFast(LPWSTR file)
 		}
 		auto len = mpg123_length(_handle);
 		mpg123_delete(_handle);
-		return len / rate;
+		return len / (double)rate;
+	}
+	case sfOgg: {
+		FILE* _Stream;
+		_wfopen_s(&_Stream, file, L"rb");
+		if (_Stream)
+		{
+			OggVorbis_File _OggFile;
+			if (ov_open(_Stream, &_OggFile, NULL, 0) < 0)
+				return 0;
+			if (ov_streams(&_OggFile) != 1)
+				goto FAIL_CLEAN_ALL;
+
+			vorbis_info* pInfo = NULL;
+			pInfo = ov_info(&_OggFile, -1);
+			if (pInfo == NULL)
+				goto FAIL_CLEAN_ALL;
+
+			auto m_SampleRate = static_cast<ULONG>(pInfo->rate);
+			auto m_Samples = ov_pcm_total(&_OggFile, -1);
+			return static_cast<double>(m_Samples) / (double)m_SampleRate;
+
+		FAIL_CLEAN_ALL:
+			ov_clear(&_OggFile);
+			fclose(_Stream);
+			return 0;
+		}
 	}
 	case sfWav: {
 		FILE* pFile;
 		WAV_HEADER pWavHead = { 0 };
-
 		_wfopen_s(&pFile, file, L"rb");
-		fread_s(&pWavHead, sizeof(WAV_HEADER), sizeof(pWavHead), 1, pFile);
-		fseek(pFile, 0, SEEK_END);
+		if (pFile) {
+			fread_s(&pWavHead, sizeof(WAV_HEADER), sizeof(pWavHead), 1, pFile);
+			fseek(pFile, 0, SEEK_END);
 
-		auto length = ftell(pFile);
-		auto duration = (double)length / (double)(pWavHead.numChannels * 2) / (double)pWavHead.sampleRate;
+			auto length = ftell(pFile);
+			auto duration = (double)length / (double)(pWavHead.numChannels * 2) / (double)pWavHead.sampleRate;
 
-		fclose(pFile);
-		return (int)duration;
+			fclose(pFile);
+			return duration;
+		}
 	}
 	}
 	return 0;

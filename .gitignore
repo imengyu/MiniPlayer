@@ -10,3 +10,5 @@
 obj/
 *.ipdb
 *.iobj
+/Debug
+/Release

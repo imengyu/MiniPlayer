@@ -90,7 +90,7 @@ public:
 	DWORD UpdatePos();
 
 	static TStreamFormat GetFileFormat(const wchar_t* pchFileName);
-	static int GetAudioDurationFast(LPWSTR file);
+	static double GetAudioDurationFast(LPWSTR file);
 protected:
 	CSoundDecoder *CreateDecoderWithFormat(TStreamFormat f);
 private:
