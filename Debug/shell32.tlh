@@ -1,6 +1,6 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.30.30705.0 (4746b70c).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.30.30705.0 (5a79e9d4).
 //
-// D:\Code\GitHub\IPlayer-master\Debug\shell32.tlh
+// D:\Code\GitHub\iplayer\Debug\shell32.tlh
 //
 // C++ source equivalent of Win32 type library Shell32.dll
 // compiler-generated file - DO NOT EDIT!
@@ -1379,7 +1379,7 @@ INewWDEvents : IWebWizardHost
 // Wrapper method implementations
 //
 
-#include "D:\Code\GitHub\IPlayer-master\Debug\shell32.tli"
+#include "D:\Code\GitHub\iplayer\Debug\shell32.tli"
 
 } // namespace Shell32
 

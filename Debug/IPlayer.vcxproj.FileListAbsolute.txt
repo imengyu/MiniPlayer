@@ -1,1 +1,2 @@
 D:\Code\GitHub\IPlayer-master\Debug\iplayer.dll
+D:\Code\GitHub\iplayer\Debug\iplayer.dll
