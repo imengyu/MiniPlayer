@@ -13,12 +13,6 @@
 #define BUFFERNOTIFYSIZE 192000   
 #define ROW_LOCAL_COUNT 32
 
-#define DELAY 1
-#define XINTERVAL 1
-#define YINTERVAL 1
-#define XINTERVALSMALL 1
-#define YINTERVALSMALL 1
-
 typedef HRESULT (WINAPI *DirectSoundCreate8Fun)(__in_opt LPCGUID pcGuidDevice, __deref_out LPDIRECTSOUND8 *ppDS8, __null LPUNKNOWN pUnkOuter);
 
 class CDSOutputer :
@@ -29,6 +23,7 @@ public:
 	~CDSOutputer();
 
 	bool OnCopyData(CSoundPlayer *instance, LPVOID buf, DWORD  buf_len) override;
+	bool OnCheckEnd(CSoundPlayer* instance);
 
 	bool Create(HWND hWnd, ULONG sample_rate = 44100,  //PCM sample rate  
 		int channels = 2,       //PCM channel number  
@@ -42,6 +37,7 @@ public:
 	DWORD GetCurrPosSample()override;
 	double GetCurrPos()override;
 	DWORD GetOutPutingPosSample()override;
+	DWORD GetBufferSizeSample()override;
 	double GetOutPutingPos()override;
 	bool IsOutPuting() override;
 	bool StartOutPut() override;

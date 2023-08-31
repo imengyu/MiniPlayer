@@ -4,6 +4,7 @@
 class CSoundPlayer;
 
 typedef bool(*OnCopyDataFun)(CSoundPlayer *instance, LPVOID buf, DWORD  buf_len);
+typedef bool(*OnCheckEndFun)(CSoundPlayer* instance);
 
 class CSoundOutPuter
 {
@@ -11,11 +12,14 @@ public:
 	CSoundOutPuter();
 	~CSoundOutPuter();
 
+	OnCheckEndFun checkEndCallback;
 	OnCopyDataFun callback;
 
 	void SetOnCopyDataCallback(OnCopyDataFun callback);
+	void SetOnCheckEndCallback(OnCheckEndFun callback);
 
 	virtual bool OnCopyData(CSoundPlayer *instance, LPVOID buf, DWORD  buf_len);
+	virtual bool OnCheckEnd(CSoundPlayer* instance);
 
 	virtual bool Create(HWND hWnd, ULONG sample_rate = 44100,  //PCM sample rate  
 		int channels = 2,       //PCM channel number  
@@ -25,7 +29,8 @@ public:
 	virtual double GetOutPutingPos() { return 0; };
 	virtual DWORD GetOutPutingPosSample() { return 0; };
 	virtual DWORD GetCurrPosSample() { return 0; };
-	virtual  double GetCurrPos() { return 0; };
+	virtual DWORD GetBufferSizeSample() { return 0; };
+	virtual double GetCurrPos() { return 0; };
 
 	virtual int GetVol();
 	virtual void SetVol(int vol);

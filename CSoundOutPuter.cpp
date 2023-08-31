@@ -14,7 +14,17 @@ void CSoundOutPuter::SetOnCopyDataCallback(OnCopyDataFun callback)
 	this->callback = callback;
 }
 
+void CSoundOutPuter::SetOnCheckEndCallback(OnCheckEndFun callback)
+{
+	checkEndCallback = callback;
+}
+
 bool CSoundOutPuter::OnCopyData(CSoundPlayer * instance, LPVOID buf, DWORD buf_len)
+{
+	return false;
+}
+
+bool CSoundOutPuter::OnCheckEnd(CSoundPlayer* instance)
 {
 	return false;
 }

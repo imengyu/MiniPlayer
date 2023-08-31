@@ -41,7 +41,14 @@ CDSOutputer::~CDSOutputer()
 
 bool CDSOutputer::OnCopyData(CSoundPlayer * instance, LPVOID buf, DWORD buf_len)
 {
-	if (callback)return callback(parent,buf, buf_len);
+	if (callback)
+		return callback(parent,buf, buf_len);
+	return false;
+}
+bool CDSOutputer::OnCheckEnd(CSoundPlayer* instance)
+{
+	if (checkEndCallback)
+		return checkEndCallback(parent);
 	return false;
 }
 
@@ -166,6 +173,9 @@ DWORD CDSOutputer::GetOutPutingPosSample()
 	}
 	return 0;
 }
+DWORD CDSOutputer::GetBufferSizeSample() { 
+	return bfs;
+};
 double CDSOutputer::GetOutPutingPos()
 {
 	if (m_outputing)
@@ -268,7 +278,15 @@ int CDSOutputer::ThreadFuncPCM(void * lpdwParam)
 					instance->offset += BUFFERNOTIFYSIZE;
 					instance->offset %= BUFFERNOTIFYSIZE * MAX_AUDIO_BUF;
 				}
-			    break;
+				if (!instance->m_outputing) {
+					for (size_t i = 0; i < 5; i++)
+					{
+						if (instance->OnCheckEnd(instance->parent))
+							break;
+						Sleep(20);
+					}
+				}
+			  break;
 			case 4:
 				ResetEvent(instance->m_event[4]);
 				instance->m_pDSBuffer8->Stop();

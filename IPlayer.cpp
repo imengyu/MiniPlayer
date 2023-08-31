@@ -22,6 +22,9 @@ using namespace std;
 #include "CDSOutputer.h"
 #include <Digitalv.h>
 
+#define TIMER_FADE 26
+#define TIMER_END_CHECK 27
+
 std::vector<CDecoderPluginReal> decoders;
 
 IPlayer::IPlayer(HWND hWnd)
@@ -29,6 +32,7 @@ IPlayer::IPlayer(HWND hWnd)
 	hostHWnd = hWnd;
 	m_outputer = new CDSOutputer(this);
 	m_outputer->SetOnCopyDataCallback(OnCopyData);
+	m_outputer->SetOnCheckEndCallback(OnCheckEnd);
 }
 IPlayer::~IPlayer()
 {
@@ -41,7 +45,6 @@ IPlayer::~IPlayer()
 
 bool IPlayer::Open(LPWSTR file)
 {
-	m_NextStop = FALSE;
 	if (!m_LastDestroyed)
 		Close();
 	TStreamFormat thisFileFormat = GetFileFormat(file);
@@ -66,12 +69,14 @@ bool IPlayer::Open(LPWSTR file)
 			m_decoder->SeekToSec(0);
 			m_playerStatus = TPlayerStatus::Opened;
 
-			int i1 = m_decoder->GetMusicSampleRate(), i2 = m_decoder->GetMusicChannelsCount(), i3 = m_decoder->GetMusicBitsPerSample();
-			if (i1 == -1 || i2 == -1 || i3 == -1) {
+			current_sample_rate = m_decoder->GetMusicSampleRate();
+			current_channels = m_decoder->GetMusicChannelsCount();
+			current_bits_per_sample = m_decoder->GetMusicBitsPerSample();
+			if (current_sample_rate == -1 || current_channels == -1 || current_bits_per_sample == -1) {
 				m_decoder->Close();
 				return err(L"User canceled play.");
 			}
-			if (!m_outputer->Create(hostHWnd, i1, i2, i3))
+			if (!m_outputer->Create(hostHWnd, current_sample_rate, current_channels, current_bits_per_sample))
 				return false;
 
 			if (playerVol != m_outputer->GetVol())m_outputer->SetVol(playerVol);
@@ -83,6 +88,7 @@ bool IPlayer::Open(LPWSTR file)
 			memset(isplayingAllTime, 0, sizeof(isplayingAllTime));
 			wcsftime(isplayingAllTime, sizeof(isplayingAllTime) / sizeof(wchar_t), L"%M:%S", &p);
 			m_LastDestroyed = FALSE;
+			currentPlayPosSample = 0;
 
 			UpdatePos();
 
@@ -160,8 +166,9 @@ bool IPlayer::Play()
 		else {
 			if (m_playerStatus != TPlayerStatus::Playing)
 			{
-				if (!m_outputer->IsOutPuting())m_outputer->StartOutPut();
 				m_playerStatus = TPlayerStatus::Playing;
+				if (!m_outputer->IsOutPuting())
+					m_outputer->StartOutPut();
 				return true;
 			}
 			else return true;
@@ -289,13 +296,30 @@ TPlayerStatus IPlayer::GetPlayerStatus()
 }
 DWORD IPlayer::GetMusicPosSample()
 {
-	if (m_decoder&&m_decoder->IsOpened())
-		return m_decoder->GetCurSample();
-	return -1;
+	//精确时间为累计输出器输出的sample
+	auto ouputerPos = m_outputer->GetCurrPosSample();
+
+	if (ouputerPos != lastGetMusicPosSample && GetPlayerStatus() == Playing) {
+		DWORD passedSamples = 0;
+		if (ouputerPos > lastGetMusicPosSample)
+			passedSamples = (ouputerPos - lastGetMusicPosSample);
+		else
+			passedSamples = (ouputerPos + (m_outputer->GetBufferSizeSample() - lastGetMusicPosSample));
+		lastGetMusicPosSample = ouputerPos;
+		if (passedSamples < 0)
+			printf("!");
+		currentPlayPosSample += passedSamples;
+
+		//检查真实播放进度是否到达末尾，是则停止
+		CheckPlayEnd();
+	}
+
+	return currentPlayPosSample;
 }
 DWORD IPlayer::SetMusicPosSample(DWORD sample)
 {
 	if (IsOpened()) {
+		currentPlayPosSample = sample;
 		if (sample != m_decoder->GetCurSample()) {
 			m_decoder->SeekToSample(sample);
 			if (!m_playingMidi) m_outputer->ResetOutPut();
@@ -305,12 +329,12 @@ DWORD IPlayer::SetMusicPosSample(DWORD sample)
 }
 double IPlayer::GetMusicPos()
 {
-	if (m_decoder&&m_decoder->IsOpened())
+	if (m_decoder && m_decoder->IsOpened())
 	{
-		double c = 0;
-		//if (m_playingMidi) 
-		c = m_decoder->GetCurSec();
-		//else c = m_outputer->GetCurrPos();
+		double sample = GetMusicPosSample();
+		double c = sample / current_sample_rate;
+
+		//生成时间
 		time_t t;
 		tm p;
 		t = static_cast<long long>(c);
@@ -321,11 +345,16 @@ double IPlayer::GetMusicPos()
 		wcscat_s(isplayingTime, L"/");
 		wcscat_s(isplayingTime, isplayingAllTime);
 
-		//swprintf_s(teststr, L"pos : %f depos : %f outposdl s : %d + outposc s : %d = outpos s : %d depos s : %d \n", 
-		//	c, m_decoder->GetCurSec(), ((CDSOutputer*)m_outputer)->cur_decorder_pos, 
-		//	m_outputer->GetOutPutingPosSample(),
-		//	m_outputer->GetCurrPosSample(), m_decoder->GetCurSample());
-		//OutputDebugString(teststr);
+#if _DEBUG
+		swprintf_s(teststr, L"pos : %f sample : %f decoder CurSample : %d outputer pos : %d outputer CurSample : %d\n", 
+			c,
+			sample,
+			m_decoder->GetCurSample(), 
+			((CDSOutputer*)m_outputer)->cur_decorder_pos, 
+			m_outputer->GetCurrPosSample()
+		);
+		OutputDebugString(teststr);
+#endif
 
 		return c;
 	}
@@ -346,9 +375,11 @@ DWORD  IPlayer::GetMusicLengthSample()
 bool IPlayer::SetMusicPos(double sec)
 {
 	if (IsOpened()) {
+		currentPlayPosSample = static_cast<DWORD>(sec * current_sample_rate);;
 		if (sec != m_decoder->GetCurSec()) {
 			m_decoder->SeekToSec(sec);
-			if (!m_playingMidi) m_outputer->ResetOutPut();
+			if (!m_playingMidi)
+				m_outputer->ResetOutPut();
 		}
 	}
 	return false;
@@ -357,7 +388,7 @@ void IPlayer::FadeOut(int sec, int from, int to)
 {
 	currentFadeOff = (from - to)*0.1;
 	currentFadePlayer = this;
-	SetTimer(hostHWnd, 26, static_cast<UINT>(sec*0.1*1000), (TIMERPROC)OnFadeTime);
+	SetTimer(hostHWnd, TIMER_FADE, static_cast<UINT>(sec*0.1*1000), (TIMERPROC)OnFadeTime);
 	currentFadeIn = false;
 	currentFadeVal = from;
 	endFadeVol = to;
@@ -366,7 +397,7 @@ void IPlayer::FadeIn(int sec, int from, int to)
 {
 	currentFadeOff = (to - from)*0.1;
 	currentFadePlayer = this;
-	SetTimer(hostHWnd, 26, static_cast<UINT>(sec*0.1 * 1000), (TIMERPROC)OnFadeTime);
+	SetTimer(hostHWnd, TIMER_FADE, static_cast<UINT>(sec*0.1 * 1000), (TIMERPROC)OnFadeTime);
 	currentFadeIn = true;
 	currentFadeVal = from;
 	endFadeVol = to;
@@ -478,9 +509,7 @@ bool IPlayer::DestroyDecoderInPlugin(const TStreamFormat format, CSoundDecoder*d
 	return false;
 }
 
-#define RESET_POINTER if (SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == 0xFFFFFFFF){CloseHandle(hFile);return sfUnknown;}
-#define RESET_POINTER2(pos) if (SetFilePointer(hFile, pos, NULL, FILE_BEGIN) == 0xFFFFFFFF){CloseHandle(hFile);return sfUnknown;}
-#define RETURN_TYPE(type) { CloseHandle(hFile);return type; }
+#define RETURN_TYPE(type) { fclose(f);return type; }
 
 TStreamFormat IPlayer::GetFileFormat(const wchar_t * pchFileName)
 {
@@ -488,112 +517,68 @@ TStreamFormat IPlayer::GetFileFormat(const wchar_t * pchFileName)
 		return sfUnknown;
 
 	// open file
-	HANDLE hFile = CreateFileW(pchFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	FILE* f;
+	_wfopen_s(&f, pchFileName, L"rb");
+	if (!f)
 		return sfUnknown;
 
-	// get file size
-	unsigned int nStreamSize = GetFileSize(hFile, NULL);
-
-	if (nStreamSize == 0xFFFFFFFF)
-		RETURN_TYPE(sfUnknown)
-
 	char tmp[16];
-	DWORD dwRead;
+	if (fread_s(tmp, sizeof(tmp), 1, 16, f) < 16) {
+		fclose(f);
+		return sfUnknown;
+	}
 
 	// check if file is wav
 	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-	{
-		if (strncmp(tmp, "WAVE", 4) == 0)
-			RETURN_TYPE(sfWav)
-	}
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 8, &dwRead, NULL) && dwRead == 8)
-	{
-		if (strncmp(tmp, "WAVEfmt", 8) == 0)
-			RETURN_TYPE(sfWav)
-	}
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-	{
-		if (strncmp(tmp, "RIFF", 4) == 0)
-			RETURN_TYPE(sfWav)
-	}
+	if (strncmp(tmp, "WAVE", 4) == 0)
+		RETURN_TYPE(sfWav)
+	if (strncmp(tmp, "WAVEfmt", 8) == 0)
+		RETURN_TYPE(sfWav)
+	if (strncmp(tmp, "RIFF", 4) == 0)
+		RETURN_TYPE(sfWav)
 
 	// check if file is midi
 	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-	{
-		if (strncmp(tmp, "MThd", 4) == 0)
-			RETURN_TYPE(sfMidi)
-	}
+	if (strncmp(tmp, "MThd", 4) == 0)
+		RETURN_TYPE(sfMidi)
 
 	// check if file is m4a
 	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 16, &dwRead, NULL) && dwRead == 16)
-	{
-		const char m4aHead[16] = {
-			0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 
-			0x4D, 0x34, 0x41, 0x20, 0x00, 0x00, 0x00, 0x00
-		};
-		if (strncmp(tmp, m4aHead, sizeof(m4aHead)) == 0)
-			RETURN_TYPE(sfM4a)
-	}
+	const char m4aHead[16] = {
+		0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 
+		0x4D, 0x34, 0x41, 0x20, 0x00, 0x00, 0x00, 0x00
+	};
+	if (strncmp(tmp, m4aHead, sizeof(m4aHead)) == 0)
+		RETURN_TYPE(sfM4a)
 
 	// check if file is m4a
 	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 8, &dwRead, NULL) && dwRead == 8)
-	{
-		const char wmaHead[8] = {
-			0x30, 0x26, (char)0xb2, (char)0x75, (char)0x8e, (char)0x66, (char)0xcf, (char)0x11
-		};
-		if (strncmp(tmp, wmaHead, sizeof(wmaHead)) == 0)
-			RETURN_TYPE(sfWma)
-	}
-	
-	// check if file can be ogg, check first 4 bytes for OggS identification
-	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-	{
-		if (strncmp(tmp, "OggS", 4) == 0)
-		{
-			// this can be ogg file, check if this is FLAC OGG
-			if (SetFilePointer(hFile, 29, NULL, FILE_BEGIN) != 0xFFFFFFFF)
-			{
-				if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-				{
-					if (strncmp(tmp, "FLAC", 4) == 0)
-						RETURN_TYPE(sfFLACOgg);
-				}
-			}
-		}
-	}
-
-	// check if file can be ogg, check first 4 bytes for OggS identification.
-	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
-	{
-		if (strncmp(tmp, "OggS", 4) == 0)
-			RETURN_TYPE(sfOgg)
-	}
+	const char wmaHead[8] = {
+		0x30, 0x26, (char)0xb2, (char)0x75, (char)0x8e, (char)0x66, (char)0xcf, (char)0x11
+	};
+	if (strncmp(tmp, wmaHead, sizeof(wmaHead)) == 0)
+		RETURN_TYPE(sfWma)
 
 	//	CHECK IG THIS IS FLAC FILE
 	// ====================================================================
-	RESET_POINTER
-	if (ReadFile(hFile, tmp, 4, &dwRead, NULL) && dwRead == 4)
+	if (strncmp(tmp, "fLaC", 4) == 0)
+		RETURN_TYPE(sfFLAC)
+
+	// check if file can be ogg, check first 4 bytes for OggS identification
+	// ====================================================================
+	if (strncmp(tmp, "OggS", 4) == 0)
 	{
-		if (strncmp(tmp, "fLaC", 4) == 0)
-			RETURN_TYPE(sfFLAC)
+		fseek(f, 29, SEEK_SET);
+		fread_s(tmp, sizeof(tmp), 1, 4, f);
+
+		if (strncmp(tmp, "FLAC", 4) == 0)
+			RETURN_TYPE(sfFLACOgg)
+		else
+			RETURN_TYPE(sfOgg)
 	}
 
-	CloseHandle(hFile);
+
+	fclose(f);
 
 	// =================================================
 	// parse filename and try to get file format using filename extension
@@ -641,6 +626,21 @@ DWORD IPlayer::UpdatePos() {
 	DWORD d = m_decoder->GetCurSample();
 	return d;
 }
+bool IPlayer::CheckPlayEnd() {
+	//检查真实播放进度是否到达末尾，是则停止
+	if (GetMusicPosSample() > m_decoder->GetMusicLengthSample()) {
+		SetEndStatus();
+		return false;
+	}
+	return true;
+}
+void IPlayer::SetEndStatus() {
+	m_playerStatus = PlayEnd;
+	m_outputer->EndOutPut();
+}
+void IPlayer::StartEndCheck()
+{
+}
 
 CSoundDecoder * IPlayer::CreateDecoderWithFormat(TStreamFormat f)
 {
@@ -676,30 +676,23 @@ CSoundDecoder * IPlayer::CreateDecoderWithFormat(TStreamFormat f)
 	return nullptr;
 }
 
-void IPlayer::SetEndStatus() {
-	m_playerStatus = TPlayerStatus::PlayEnd;
-}
 bool IPlayer::err(wchar_t const* errmsg)
 {
 	wcscpy_s(lasterr, errmsg);
 	return false;
 }
 
+bool IPlayer::OnCheckEnd(CSoundPlayer* instance) {
+	return !((IPlayer*)instance)->CheckPlayEnd();
+}
 bool IPlayer::OnCopyData(CSoundPlayer*instance, LPVOID buf, DWORD buf_len)
 {
 	if (!instance->IsPlayingMidi())
 	{
-		if (((IPlayer*)instance)->m_NextStop)
-		{
-			((IPlayer*)instance)->m_NextStop = FALSE;
-			((IPlayer*)instance)->m_playerStatus = PlayEnd;
-			((IPlayer*)instance)->m_outputer->EndOutPut();
+		((IPlayer*)instance)->GetMusicPosSample();
+		auto read_size = ((IPlayer*)instance)->m_decoder->Read(buf, buf_len);
+		if (read_size < buf_len) {
 			return false;
-		}
-		else if (((IPlayer*)instance)->m_decoder->Read(buf, buf_len) < buf_len)
-		{
-			((IPlayer*)instance)->m_NextStop = TRUE;
-			return true;
 		}
 		return true;
 	}	
@@ -708,7 +701,10 @@ bool IPlayer::OnCopyData(CSoundPlayer*instance, LPVOID buf, DWORD buf_len)
 
 VOID CALLBACK IPlayer::OnFadeTime(HWND hwnd, UINT message, UINT iTimerID, DWORD dwTime)
 {
-	if (!currentFadePlayer) { KillTimer(hwnd, 26); return; }
+	if (!currentFadePlayer) { 
+		KillTimer(hwnd, TIMER_FADE); 
+		return; 
+	}
 	if (currentFadeIn)
 	{
 		if (currentFadeVal < endFadeVol)
@@ -720,7 +716,7 @@ VOID CALLBACK IPlayer::OnFadeTime(HWND hwnd, UINT message, UINT iTimerID, DWORD 
 		{
 			currentFadeVal = endFadeVol;
 			currentFadePlayer->SetPlayerVolume(endFadeVol);
-			KillTimer(hwnd, 26);
+			KillTimer(hwnd, TIMER_FADE);
 		}
 	}
 	else
@@ -734,7 +730,7 @@ VOID CALLBACK IPlayer::OnFadeTime(HWND hwnd, UINT message, UINT iTimerID, DWORD 
 		{
 			currentFadeVal = endFadeVol;
 			currentFadePlayer->SetPlayerVolume(endFadeVol);
-			KillTimer(hwnd, 26);
+			KillTimer(hwnd, TIMER_FADE);
 		}
 	}
 }

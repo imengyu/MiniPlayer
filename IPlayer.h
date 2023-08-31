@@ -71,9 +71,9 @@ public:
 
 	HWND hostHWnd;
 
-	DWORD GetMusicSampleRate() override { if(m_decoder) return m_decoder->GetMusicSampleRate(); return 0;}
-	int GetMusicBitPerSample() override { if (m_decoder) return m_decoder->GetMusicBitsPerSample(); return 0; }
-	int GetMusicChannelsCount() override { if (m_decoder) return m_decoder->GetMusicChannelsCount(); return 0; }
+	DWORD GetMusicSampleRate() override { return current_sample_rate;}
+	int GetMusicBitPerSample() override { return current_bits_per_sample; }
+	int GetMusicChannelsCount() override { return current_channels; }
 
 	void DrawFFTOnHDCSmall(HDC hdc);
 	void SetFFTHDC(HDC hdc) override;
@@ -86,7 +86,6 @@ public:
 	bool err(wchar_t const* errmsg);
 	bool defoutseted() { return def_out_seted; }
 
-	void SetEndStatus();
 	DWORD UpdatePos();
 
 	static TStreamFormat GetFileFormat(const wchar_t* pchFileName);
@@ -100,31 +99,36 @@ private:
 	WCHAR isplayingAllTime[16];
 	HDC ffthdc;
 	BOOL m_playingMidi = FALSE,
-		m_LastDestroyed = TRUE,
-		m_NextStop = FALSE;
+		m_LastDestroyed = TRUE;
 
 	CSoundOutPuter * m_outputer;
 	CSoundDecoder *m_decoder;
 	TPlayerStatus m_playerStatus;
 
+	ULONG current_sample_rate;
+	int current_channels;
+	int current_bits_per_sample;
 	ULONG def_sample_rate;
 	int def_channels;
 	int def_bits_per_sample;
 	bool def_out_seted = false;
-	
+
+	DWORD lastGetMusicPosSample = 0;
+	DWORD currentPlayPosSample = 0;
 	int playerVol = 100;
 	char *c_user_mixer_line;
 	unsigned int c_user_mixer_line_id;
 	unsigned int c_user_mixer_volume;
-
 	unsigned int c_nWaveInBufferSize;  // maximal size(latency) of wave in buffer in milliseconds
 
 	TStreamFormat m_openedFileFormat = TStreamFormat::sfUnknown;
 
+	void SetEndStatus();
+	void StartEndCheck();
+	bool CheckPlayEnd();
 
-
+	static bool OnCheckEnd(CSoundPlayer* instance);
 	static bool OnCopyData(CSoundPlayer*instance, LPVOID buf, DWORD  buf_len);
-
 
 	static VOID CALLBACK OnFadeTime(HWND hwnd, UINT message, UINT iTimerID, DWORD dwTime);
 
