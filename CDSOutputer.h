@@ -23,7 +23,7 @@ public:
 	~CDSOutputer();
 
 	bool OnCopyData(CSoundPlayer *instance, LPVOID buf, DWORD  buf_len) override;
-	bool OnCheckEnd(CSoundPlayer* instance);
+	DWORD OnCheckEnd(CSoundPlayer* instance) override;
 
 	bool Create(HWND hWnd, ULONG sample_rate = 44100,  //PCM sample rate  
 		int channels = 2,       //PCM channel number  
@@ -59,7 +59,7 @@ private:
 	IDirectSoundBuffer *m_pDSBuffer = NULL;
 	IDirectSoundNotify8 *m_pDSNotify = NULL;
 	DSBPOSITIONNOTIFY m_pDSPosNotify[MAX_AUDIO_BUF];
-	HANDLE m_event[MAX_AUDIO_BUF + 2];
+	HANDLE m_event[MAX_AUDIO_BUF + 3];
 
 	DSBUFFERDESC dsbd;
 	HANDLE playThread;

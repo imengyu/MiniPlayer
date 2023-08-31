@@ -87,6 +87,7 @@ public:
 	bool defoutseted() { return def_out_seted; }
 
 	DWORD UpdatePos();
+	void SetEndStatus();
 
 	static TStreamFormat GetFileFormat(const wchar_t* pchFileName);
 	static double GetAudioDurationFast(LPWSTR file);
@@ -123,11 +124,10 @@ private:
 
 	TStreamFormat m_openedFileFormat = TStreamFormat::sfUnknown;
 
-	void SetEndStatus();
 	void StartEndCheck();
-	bool CheckPlayEnd();
+	DWORD CheckPlayEnd();
 
-	static bool OnCheckEnd(CSoundPlayer* instance);
+	static DWORD OnCheckEnd(CSoundPlayer* instance);
 	static bool OnCopyData(CSoundPlayer*instance, LPVOID buf, DWORD  buf_len);
 
 	static VOID CALLBACK OnFadeTime(HWND hwnd, UINT message, UINT iTimerID, DWORD dwTime);

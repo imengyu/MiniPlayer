@@ -24,9 +24,9 @@ bool CSoundOutPuter::OnCopyData(CSoundPlayer * instance, LPVOID buf, DWORD buf_l
 	return false;
 }
 
-bool CSoundOutPuter::OnCheckEnd(CSoundPlayer* instance)
+DWORD CSoundOutPuter::OnCheckEnd(CSoundPlayer* instance)
 {
-	return false;
+	return 0;
 }
 
 bool CSoundOutPuter::Create(HWND hWnd, ULONG sample_rate, int channels, int bits_per_sample)

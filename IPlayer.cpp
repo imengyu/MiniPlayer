@@ -90,6 +90,18 @@ bool IPlayer::Open(LPWSTR file)
 			m_LastDestroyed = FALSE;
 			currentPlayPosSample = 0;
 
+#if _DEBUG
+			WCHAR teststr[100];
+			swprintf_s(teststr, L"duration : %f sample : %d sample_rate: %d channel: %d bits_per_sample: %d\n",
+				m_decoder->GetMusicLength(),
+				m_decoder->GetMusicLengthSample(),
+				m_decoder->GetMusicSampleRate(),
+				m_decoder->GetMusicChannelsCount(),
+				m_decoder->GetMusicBitsPerSample()
+			);
+			OutputDebugString(teststr);
+#endif
+
 			UpdatePos();
 
 			return true;
@@ -109,7 +121,7 @@ bool IPlayer::Close()
 			m_decoder->Close();
 			delete m_decoder;
 			m_decoder = NULL;
-		}		
+		}
 		m_playerStatus = NotOpen;
 		m_LastDestroyed = TRUE;
 		return true;
@@ -306,12 +318,7 @@ DWORD IPlayer::GetMusicPosSample()
 		else
 			passedSamples = (ouputerPos + (m_outputer->GetBufferSizeSample() - lastGetMusicPosSample));
 		lastGetMusicPosSample = ouputerPos;
-		if (passedSamples < 0)
-			printf("!");
 		currentPlayPosSample += passedSamples;
-
-		//检查真实播放进度是否到达末尾，是则停止
-		CheckPlayEnd();
 	}
 
 	return currentPlayPosSample;
@@ -626,13 +633,9 @@ DWORD IPlayer::UpdatePos() {
 	DWORD d = m_decoder->GetCurSample();
 	return d;
 }
-bool IPlayer::CheckPlayEnd() {
+DWORD IPlayer::CheckPlayEnd() {
 	//检查真实播放进度是否到达末尾，是则停止
-	if (GetMusicPosSample() > m_decoder->GetMusicLengthSample()) {
-		SetEndStatus();
-		return false;
-	}
-	return true;
+	return m_decoder->GetMusicLengthSample() - GetMusicPosSample();
 }
 void IPlayer::SetEndStatus() {
 	m_playerStatus = PlayEnd;
@@ -682,16 +685,16 @@ bool IPlayer::err(wchar_t const* errmsg)
 	return false;
 }
 
-bool IPlayer::OnCheckEnd(CSoundPlayer* instance) {
-	return !((IPlayer*)instance)->CheckPlayEnd();
+DWORD IPlayer::OnCheckEnd(CSoundPlayer* instance) {
+	return ((IPlayer*)instance)->CheckPlayEnd();
 }
 bool IPlayer::OnCopyData(CSoundPlayer*instance, LPVOID buf, DWORD buf_len)
 {
 	if (!instance->IsPlayingMidi())
 	{
-		((IPlayer*)instance)->GetMusicPosSample();
 		auto read_size = ((IPlayer*)instance)->m_decoder->Read(buf, buf_len);
 		if (read_size < buf_len) {
+			memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
 			return false;
 		}
 		return true;

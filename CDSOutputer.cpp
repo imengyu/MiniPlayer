@@ -28,6 +28,7 @@ CDSOutputer::CDSOutputer(CSoundPlayer * instance)
 	hThreadEventEndOutPut = CreateEvent(NULL, TRUE, FALSE, L"ThreadEventEndOutPut");
 	m_event[4] = hThreadEventReset;
 	m_event[5] = hThreadEventEndOutPut;
+	m_event[6] = hThreadEventExit;
 }
 CDSOutputer::~CDSOutputer()
 {
@@ -45,7 +46,7 @@ bool CDSOutputer::OnCopyData(CSoundPlayer * instance, LPVOID buf, DWORD buf_len)
 		return callback(parent,buf, buf_len);
 	return false;
 }
-bool CDSOutputer::OnCheckEnd(CSoundPlayer* instance)
+DWORD CDSOutputer::OnCheckEnd(CSoundPlayer* instance)
 {
 	if (checkEndCallback)
 		return checkEndCallback(parent);
@@ -61,7 +62,7 @@ bool CDSOutputer::Create(HWND hWnd, ULONG sample_rate, int channels,  int bits_p
 	this->sample_rate = sample_rate;
 	this->channels = channels;
 	this->bits_per_sample = bits_per_sample;
-	bfs = sample_rate* static_cast<ULONG>(channels) * static_cast<ULONG>(bits_per_sample)/8;
+	bfs = BUFFERNOTIFYSIZE;
 	bfs2 = static_cast<ULONG>(channels) * static_cast<ULONG>(bits_per_sample) / 8;
 	if (!dsLoaded) {
 		hDs = LoadLibrary(L"dsound.dll");
@@ -81,18 +82,12 @@ bool CDSOutputer::Create(HWND hWnd, ULONG sample_rate, int channels,  int bits_p
 	dsbd.dwBufferBytes = MAX_AUDIO_BUF * BUFFERNOTIFYSIZE;
 	//WAVE Header  
 	dsbd.lpwfxFormat = (WAVEFORMATEX*)malloc(sizeof(WAVEFORMATEX));
-	dsbd.lpwfxFormat->wFormatTag = WAVE_FORMAT_PCM;
-	/* format type */
-	(dsbd.lpwfxFormat)->nChannels = static_cast<WORD>(channels);
-	/* number of channels (i.e. mono, stereo...) */
-	(dsbd.lpwfxFormat)->nSamplesPerSec = sample_rate;
-	/* sample rate */
-	(dsbd.lpwfxFormat)->nAvgBytesPerSec = sample_rate * static_cast<DWORD>((bits_per_sample / 8)*channels);
-	/* for buffer estimation */
-	(dsbd.lpwfxFormat)->nBlockAlign = static_cast<WORD>((bits_per_sample / 8)*channels);
-	/* block size of data */
-	(dsbd.lpwfxFormat)->wBitsPerSample = static_cast<WORD>(bits_per_sample);
-	/* number of bits per sample of mono data */
+	dsbd.lpwfxFormat->wFormatTag = WAVE_FORMAT_PCM; /* format type */
+	(dsbd.lpwfxFormat)->nChannels = static_cast<WORD>(channels); /* number of channels (i.e. mono, stereo...) */
+	(dsbd.lpwfxFormat)->nSamplesPerSec = sample_rate; /* sample rate */
+	(dsbd.lpwfxFormat)->nAvgBytesPerSec = sample_rate * static_cast<DWORD>((bits_per_sample / 8)*channels); /* for buffer estimation */
+	(dsbd.lpwfxFormat)->nBlockAlign = static_cast<WORD>((bits_per_sample / 8)*channels); /* block size of data */
+	(dsbd.lpwfxFormat)->wBitsPerSample = static_cast<WORD>(bits_per_sample); /* number of bits per sample of mono data */
 	(dsbd.lpwfxFormat)->cbSize = 0;
 
 	//Creates a sound buffer object to manage audio samples.   
@@ -255,6 +250,7 @@ int CDSOutputer::ThreadFuncPCM(void * lpdwParam)
 {
 	LPVOID buf = NULL;
 	DWORD bytes = 0;
+	bool copyDataRet = false;
 
 	CDSOutputer*instance = static_cast<CDSOutputer*>(lpdwParam);
 	OutputDebugString(L"ThreadStart\n");
@@ -273,19 +269,19 @@ int CDSOutputer::ThreadFuncPCM(void * lpdwParam)
 			case 3:
 				if (SUCCEEDED(instance->m_pDSBuffer8->Lock(instance->offset, BUFFERNOTIFYSIZE, &buf, &bytes, NULL, NULL, NULL)))
 				{
-					instance->m_outputing = instance->OnCopyData(instance->parent, buf, bytes);
+					copyDataRet = instance->OnCopyData(instance->parent, buf, bytes);
 					instance->m_pDSBuffer8->Unlock(buf, bytes, NULL, NULL);
 					instance->offset += BUFFERNOTIFYSIZE;
 					instance->offset %= BUFFERNOTIFYSIZE * MAX_AUDIO_BUF;
 				}
-				if (!instance->m_outputing) {
-					for (size_t i = 0; i < 5; i++)
-					{
-						if (instance->OnCheckEnd(instance->parent))
-							break;
-						Sleep(20);
-					}
+				if (!copyDataRet) {
+					auto leaveSamples = instance->OnCheckEnd(instance->parent);
+					auto sleepMs = (DWORD)(leaveSamples / (double)instance->sample_rate * 1000);
+					Sleep(sleepMs);
+					((IPlayer*)instance->parent)->SetEndStatus();
+					goto EXIT;
 				}
+				instance->m_outputing = copyDataRet;
 			  break;
 			case 4:
 				ResetEvent(instance->m_event[4]);
