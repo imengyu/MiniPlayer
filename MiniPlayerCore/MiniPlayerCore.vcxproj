@@ -72,12 +72,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg\ogg;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg\;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg\ogg;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Release;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Release;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Release;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Release;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Release;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -156,7 +156,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CAacDecoder.h" />
+    <ClInclude Include="CFLACDecoder.h" />
+    <ClInclude Include="CMP3Decoder.h" />
+    <ClInclude Include="COggDecoder.h" />
     <ClInclude Include="CSoundDecoder.h" />
+    <ClInclude Include="CSoundDevice.h" />
     <ClInclude Include="CSoundPlayer.h" />
     <ClInclude Include="DbgHelper.h" />
     <ClInclude Include="Export.h" />
@@ -165,7 +170,12 @@
     <ClInclude Include="StringHelper.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CAacDecoder.cpp" />
+    <ClCompile Include="CFLACDecoder.cpp" />
+    <ClCompile Include="CMP3Decoder.cpp" />
+    <ClCompile Include="COggDecoder.cpp" />
     <ClCompile Include="CSoundDecoder.cpp" />
+    <ClCompile Include="CSoundDevice.cpp" />
     <ClCompile Include="CSoundPlayer.cpp" />
     <ClCompile Include="DbgHelper.cpp" />
     <ClCompile Include="dllmain.cpp" />

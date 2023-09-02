@@ -13,6 +13,18 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="头文件\Helpers">
+      <UniqueIdentifier>{4f951010-799a-428a-8651-7cf2c3bb3e92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Decoders">
+      <UniqueIdentifier>{b98dd712-56a3-481e-be87-49fcaadd87b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Helpers">
+      <UniqueIdentifier>{c6a30c20-b25a-4321-be6f-ae2700d8a3c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Decoders">
+      <UniqueIdentifier>{6f01e149-377a-4fef-b87d-25143b3b5337}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -30,11 +42,26 @@
     <ClInclude Include="CSoundDecoder.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="StringHelper.h">
+    <ClInclude Include="CSoundDevice.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="CMP3Decoder.h">
+      <Filter>头文件\Decoders</Filter>
+    </ClInclude>
+    <ClInclude Include="CAacDecoder.h">
+      <Filter>头文件\Decoders</Filter>
+    </ClInclude>
+    <ClInclude Include="CFLACDecoder.h">
+      <Filter>头文件\Decoders</Filter>
+    </ClInclude>
+    <ClInclude Include="COggDecoder.h">
+      <Filter>头文件\Decoders</Filter>
+    </ClInclude>
     <ClInclude Include="DbgHelper.h">
-      <Filter>头文件</Filter>
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="StringHelper.h">
+      <Filter>头文件\Helpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -53,11 +80,26 @@
     <ClCompile Include="CSoundDecoder.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="StringHelper.cpp">
+    <ClCompile Include="CSoundDevice.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="CAacDecoder.cpp">
+      <Filter>源文件\Decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="CFLACDecoder.cpp">
+      <Filter>源文件\Decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="CMP3Decoder.cpp">
+      <Filter>源文件\Decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="COggDecoder.cpp">
+      <Filter>源文件\Decoders</Filter>
+    </ClCompile>
     <ClCompile Include="DbgHelper.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="StringHelper.cpp">
+      <Filter>源文件\Helpers</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
