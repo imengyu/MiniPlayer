@@ -1,5 +1,0 @@
-LIBRARY
-EXPORTS
-  Copyright2018ByDfish @1
-  CreateIPlayer @2 NONAME
-  DestroyIPlayer @3 NONAME
