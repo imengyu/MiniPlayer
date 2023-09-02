@@ -163,6 +163,7 @@
     <ClInclude Include="CSoundDecoder.h" />
     <ClInclude Include="CSoundDevice.h" />
     <ClInclude Include="CSoundPlayer.h" />
+    <ClInclude Include="CWavDecoder.h" />
     <ClInclude Include="DbgHelper.h" />
     <ClInclude Include="Export.h" />
     <ClInclude Include="framework.h" />
@@ -177,6 +178,7 @@
     <ClCompile Include="CSoundDecoder.cpp" />
     <ClCompile Include="CSoundDevice.cpp" />
     <ClCompile Include="CSoundPlayer.cpp" />
+    <ClCompile Include="CWavDecoder.cpp" />
     <ClCompile Include="DbgHelper.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Export.cpp" />
