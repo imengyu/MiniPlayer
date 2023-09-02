@@ -139,7 +139,7 @@ void CFLACDecoder::CFLACDecoder_FLAC__StreamDecoderMetadataCallback(const FLAC__
 	}
 }
 
-bool CFLACDecoder::Open(LPWSTR file)
+bool CFLACDecoder::Open(const wchar_t* file)
 {
 	pDecoder = FLAC__stream_decoder_new();
 	if (!pDecoder) {

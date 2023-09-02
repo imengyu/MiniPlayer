@@ -16,7 +16,7 @@ CAacDecoder::~CAacDecoder()
 {
 }
 
-bool CAacDecoder::Open(LPWSTR file)
+bool CAacDecoder::Open(const wchar_t* file)
 {
 	if (_waccess(file, 0) == 0)
 	{

@@ -11,7 +11,7 @@ CMP3Decoder::~CMP3Decoder()
 
 }
 
-bool CMP3Decoder::Open(LPWSTR file)
+bool CMP3Decoder::Open(const wchar_t* file)
 {
 	int ret = -1;
 	_handle = mpg123_new(NULL, &ret);

@@ -35,7 +35,7 @@ long vorbisTell(void *file)
 	return ftell((FILE*)file);
 }
 
-bool COggDecoder::Open(LPWSTR file)
+bool COggDecoder::Open(const wchar_t* file)
 {
 	_wfopen_s(&_Stream, file, L"rb");
 	fseek(_Stream, 0, SEEK_SET);

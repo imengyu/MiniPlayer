@@ -11,7 +11,7 @@ CWavDecoder::~CWavDecoder()
 		Close();
 }
 
-bool CWavDecoder::Open(LPWSTR file)
+bool CWavDecoder::Open(const wchar_t* file)
 {
 	ZeroMemory(&wavInfo, sizeof(wavInfo));
 	hStream = mmioOpen(file, &wavInfo, MMIO_READ);

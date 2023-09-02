@@ -9,17 +9,11 @@
 
 CSoundPlayer* CreatePlayer()
 {
-    
-
-
-   return nullptr;
+   return new CSoundPlayer();
 }
 void DestroyPlayer(CSoundPlayer* player)
 {
-
-
-
-
+	delete player;
 }
 
 #pragma endregion

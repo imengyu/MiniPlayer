@@ -1,6 +1,6 @@
 #pragma once
-#include "CSoundPlayer.h"
 #define WITH_EXPORT_MODE
+#include "CSoundPlayer.h"
 
 //
 // * ËµÃ÷£º

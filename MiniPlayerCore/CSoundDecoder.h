@@ -10,7 +10,7 @@ public:
 	virtual ~CSoundDecoder() {}
 
 	//打开文件
-	virtual bool Open(LPWSTR file) { return false; }
+	virtual bool Open(const wchar_t* file) { return false; }
 	//关闭文件
 	virtual bool Close() { return false; }
 	//获取释放已经打开文件

@@ -66,6 +66,15 @@
     <ClInclude Include="CWavDecoder.h">
       <Filter>头文件\Decoders</Filter>
     </ClInclude>
+    <ClInclude Include="CWmaDecoder.h">
+      <Filter>头文件\Decoders</Filter>
+    </ClInclude>
+    <ClInclude Include="CriticalSection.h">
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="CSoundPlayerExport.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -105,6 +114,9 @@
       <Filter>源文件\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="CWavDecoder.cpp">
+      <Filter>源文件\Decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="CWmaDecoder.cpp">
       <Filter>源文件\Decoders</Filter>
     </ClCompile>
   </ItemGroup>
