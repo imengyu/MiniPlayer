@@ -1,20 +1,66 @@
 ﻿// MiniPlayer.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
-#include <iostream>
+#include "Export.h"
+#include <Windows.h>
+#include <Commdlg.h>  
+#include <Shlobj.h>  
+#include <locale>
+#pragma comment(lib,"Shell32.lib")  
+#pragma comment(lib,"MiniPlayerCore.lib")  
+
+CSoundPlayer* player;
 
 int main()
 {
-    std::cout << "Hello World!\n";
+	setlocale(LC_ALL, "chs");
+	OPENFILENAME ofn = { 0 };
+	TCHAR strFilename[MAX_PATH] = { 0 };
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = GetConsoleWindow();
+	ofn.lpstrFilter = TEXT("音乐文件\0*.mp3;*.wav;*.mid;*.midi;*.ogg;*.pcm\0All(*.*)\0*.*\0\0\0");//设置过滤  
+	ofn.nFilterIndex = 1;//过滤器索引  
+	ofn.lpstrFile = strFilename;
+	ofn.nMaxFile = sizeof(strFilename);
+	ofn.lpstrInitialDir = NULL;
+	ofn.lpstrTitle = TEXT("打开音乐");
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+	if (!GetOpenFileName(&ofn))
+	{
+		wprintf(L"请选择一个文件\n");
+		system("PAUSE");
+		return 0;
+	}
+	player = CreatePlayer();
+
+	wprintf(L"音乐：%s\n", strFilename);
+	if (player->Load(strFilename))
+	{
+		wprintf(L"音乐已打开\n");
+		if (player->Play())
+		{
+			wprintf(L"音乐长度：%.3f 秒\n", player->GetDuration());
+			wprintf(L"音乐开始播放\n正在播放：000.000/%7.3f", player->GetDuration());
+			for (int i = 0; i < 8; i++)
+				putchar('\b');
+
+			while (player->GetState() != TPlayerStatus::PlayEnd)
+			{
+				for (int i = 0; i < 7; i++)
+					putchar('\b');
+				wprintf(L"%7.3f", player->GetPosition());
+				Sleep(250);
+			}
+		}
+		else wprintf(L"播放失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
+
+		player->Stop();
+		player->Close();
+		wprintf(L"\n音乐已停止\n");
+	}
+	else {
+		wprintf(L"打开文件失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
+	}
+	DestroyPlayer(player);
+	return 0;
 }
-
-// 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
-// 调试程序: F5 或调试 >“开始调试”菜单
-
-// 入门使用技巧: 
-//   1. 使用解决方案资源管理器窗口添加/管理文件
-//   2. 使用团队资源管理器窗口连接到源代码管理
-//   3. 使用输出窗口查看生成输出和其他消息
-//   4. 使用错误列表窗口查看错误
-//   5. 转到“项目”>“添加新项”以创建新的代码文件，或转到“项目”>“添加现有项”以将现有代码文件添加到项目
-//   6. 将来，若要再次打开此项目，请转到“文件”>“打开”>“项目”并选择 .sln 文件

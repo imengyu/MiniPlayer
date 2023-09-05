@@ -1,0 +1,1 @@
+D:\Code\GitHub\MiniPlayer\MiniPlayerCore\Decorders\libogg\Debug\libogg.lib

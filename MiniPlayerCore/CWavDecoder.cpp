@@ -14,7 +14,7 @@ CWavDecoder::~CWavDecoder()
 bool CWavDecoder::Open(const wchar_t* file)
 {
 	ZeroMemory(&wavInfo, sizeof(wavInfo));
-	hStream = mmioOpen(file, &wavInfo, MMIO_READ);
+	hStream = mmioOpen((LPWSTR)file, &wavInfo, MMIO_READ);
 	if (!hStream) {
 		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Failed open file.");
 		return false;

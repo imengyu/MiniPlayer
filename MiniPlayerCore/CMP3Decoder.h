@@ -11,7 +11,7 @@ public:
 	~CMP3Decoder();
 
 
-	bool Open(LPWSTR file) override;
+	bool Open(const wchar_t* file) override;
 	bool Close() override;
 
 	int GetChannelsCount()override;

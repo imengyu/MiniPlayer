@@ -2,12 +2,16 @@
 #include "CSoundDecoder.h"
 #include "CSoundDevice.h"
 #include "CSoundPlayerExport.h"
+#include "Export.h"
 #include <string>
 
 //²¥·ÅÆ÷ÊµÀý
-class CSoundPlayer : public CSoundPlayerBase
+class CSoundPlayerImpl : public CSoundPlayer
 {
 public:
+	CSoundPlayerImpl();
+	~CSoundPlayerImpl();
+
 	bool Load(const wchar_t* path);
 	bool Close();
 	bool Play();
@@ -22,8 +26,8 @@ public:
 	TPlayerStatus GetState();
 	TStreamFormat GetFormat();
 
-	void SetVolume(int volume);
-	int GetVolume();
+	void SetVolume(float volume, int index = 0);
+	float GetVolume(int index = 0);
 
 	void SetLastError(int code, const wchar_t* errmsg);
 	void SetLastError(int code, const char* errmsg);
@@ -34,19 +38,23 @@ public:
 	int GetBitPerSample() { return currentBitsPerSample; }
 	int GetChannelsCount() { return currentChannels; }
 
-
 	unsigned int GetDurationSample();
 	unsigned int GetPositionSample();
 	void SetPositionSample(unsigned int sample);
 
+	void NotifyPlayEnd(bool error);
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
+	static bool OnCopyData(CSoundPlayerImpl* instance, LPVOID buf, DWORD buf_len);
 
 private:
 	CSoundDecoder* decoder = nullptr;
+	CSoundDevice* outputer = nullptr;
 
 	TStreamFormat openedFileFormat = TStreamFormat::sfUnknown;
-
+	
+	DWORD currentPlayPosSample = 0;
+	DWORD lastGetMusicPosSample = 0;
 	ULONG currentSampleRate = 0;
 	int currentChannels = 0;
 	int currentBitsPerSample = 0;

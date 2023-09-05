@@ -1,6 +1,11 @@
 #pragma once
-#define WITH_EXPORT_MODE
 #include "CSoundPlayer.h"
+
+#ifdef MINI_PLAYER_LIB
+#define MINI_PLAYER_EXPORT __declspec(dllexport)
+#else
+#define MINI_PLAYER_EXPORT 
+#endif
 
 //
 // * 说明：
@@ -12,7 +17,7 @@
 // * 返回：
 //   播放器实例指针
 //
-extern "C" CSoundPlayer* __declspec(dllexport) CreatePlayer();
+extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreatePlayer();
 
 //
 // * 说明：
@@ -24,7 +29,7 @@ extern "C" CSoundPlayer* __declspec(dllexport) CreatePlayer();
 // * 返回：
 //   无
 //
-extern "C" void __declspec(dllexport) DestroyPlayer(CSoundPlayer* player);
+extern "C" MINI_PLAYER_EXPORT void DestroyPlayer(CSoundPlayer* player);
 
 //
 // * 说明：
@@ -36,7 +41,7 @@ extern "C" void __declspec(dllexport) DestroyPlayer(CSoundPlayer* player);
 // * 返回：
 //   音频时长（秒）
 //
-extern "C" double __declspec(dllexport) GetAudioDurationFast(const wchar_t* file);
+extern "C" MINI_PLAYER_EXPORT double GetAudioDurationFast(const wchar_t* file);
 
 //
 // * 说明：
@@ -48,4 +53,4 @@ extern "C" double __declspec(dllexport) GetAudioDurationFast(const wchar_t* file
 // * 返回：
 //   格式枚举
 //
-extern "C" TStreamFormat __declspec(dllexport) GetAudioFileFormat(const wchar_t* file);
+extern "C" MINI_PLAYER_EXPORT TStreamFormat GetAudioFileFormat(const wchar_t* file);

@@ -10,7 +10,7 @@ public:
 	CAacDecoder();
 	~CAacDecoder();
 
-	bool Open(LPWSTR file) override;
+	bool Open(const wchar_t* file) override;
 	bool Close() override;
 
 

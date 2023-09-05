@@ -8,10 +8,22 @@
 #include "CWavDecoder.h"
 #include "CWmaDecoder.h"
 
-extern TStreamFormat GetAudioFileFormat(const wchar_t* pchFileName);
+CSoundPlayerImpl::CSoundPlayerImpl()
+{
+	outputer = new CSoundDevice(this);
+	outputer->SetOnCopyDataCallback(OnCopyData);
+}
+CSoundPlayerImpl::~CSoundPlayerImpl()
+{
+	if (playerStatus == Playing)
+		Stop();
 
+	Close();
+	if (outputer)
+		delete outputer;
+}
 
-bool CSoundPlayer::Load(const wchar_t* path)
+bool CSoundPlayerImpl::Load(const wchar_t* path)
 {
 	if (fileOpenedState)
 		Close();
@@ -43,8 +55,8 @@ bool CSoundPlayer::Load(const wchar_t* path)
 			currentChannels = decoder->GetChannelsCount();
 			currentBitsPerSample = decoder->GetBitsPerSample();
 
-
-
+			if (!outputer->Create())
+				return false;
 
 #if _DEBUG
 			OutputDebugString(StringHelper::FormatString(L"duration : %f sample : %d sample_rate: %d channel: %d bits_per_sample: %d\n",
@@ -55,7 +67,6 @@ bool CSoundPlayer::Load(const wchar_t* path)
 				decoder->GetBitsPerSample()
 			).c_str());
 #endif
-
 
 			return true;
 		}
@@ -68,8 +79,11 @@ bool CSoundPlayer::Load(const wchar_t* path)
 	}
 	return false;
 }
-bool CSoundPlayer::Close()
+bool CSoundPlayerImpl::Close()
 {
+	if (outputer != NULL) {
+		outputer->Destroy();
+	}
 	if (decoder != NULL) {
 		decoder->Close();
 		delete decoder;
@@ -81,11 +95,150 @@ bool CSoundPlayer::Close()
 	return true;
 }
 
+bool CSoundPlayerImpl::Play()
+{
+	if (playerStatus == NotOpen) {
+		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
+		return false;
+	}
+	if (playerStatus == Playing) {
+		return true;
+	}
+	outputer->Start();
+	playerStatus = TPlayerStatus::Playing;
+	return true;
+}
+bool CSoundPlayerImpl::Pause()
+{
+	if (playerStatus == NotOpen) {
+		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
+		return false;
+	}
+	if (playerStatus == Paused) {
+		return true;
+	}
+	playerStatus = TPlayerStatus::Paused;
+	outputer->Stop();
+	return true;
+}
+bool CSoundPlayerImpl::Stop()
+{
+	if (playerStatus == NotOpen) {
+		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
+		return false;
+	}
+	if (playerStatus == TPlayerStatus::Opened)
+		return true;
+	outputer->Stop();
+	playerStatus = TPlayerStatus::Opened;
+	return true;
+}
+bool CSoundPlayerImpl::Restart()
+{
+	if (playerStatus != NotOpen) {
+		decoder->SeekToSecond(0);
+		outputer->Reset();
+		return true;
+	}
+	else {
+		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
+	}
+	return false;
+}
 
-TStreamFormat CSoundPlayer::GetFormat() {
+double CSoundPlayerImpl::GetPosition()
+{
+	return GetPositionSample() / (double)currentSampleRate;
+}
+void CSoundPlayerImpl::SetPosition(double second)
+{
+	SetPositionSample((unsigned int)(second * currentSampleRate));
+}
+double CSoundPlayerImpl::GetDuration()
+{
+	if (decoder)
+		return decoder->GetLengthSecond();
+	return 0.0;
+}
+unsigned int CSoundPlayerImpl::GetDurationSample()
+{
+	if (decoder)
+		return decoder->GetLengthSample();
+	return 0;
+}
+unsigned int CSoundPlayerImpl::GetPositionSample()
+{
+	//精确时间为累计输出器输出的sample
+	auto ouputerPos = outputer->GetPosition();
+
+	if (ouputerPos != lastGetMusicPosSample && playerStatus == Playing) {
+		DWORD passedSamples = 0;
+		if (ouputerPos > lastGetMusicPosSample)
+			passedSamples = (ouputerPos - lastGetMusicPosSample);
+		else
+			passedSamples = (ouputerPos + (outputer->GetBufferSize() - lastGetMusicPosSample));
+		lastGetMusicPosSample = ouputerPos;
+		currentPlayPosSample += passedSamples;
+	}
+
+	return currentPlayPosSample;
+}
+void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
+{
+	if (playerStatus != NotOpen) {
+		currentPlayPosSample = sample;
+		if (sample != decoder->GetCurrentPositionSample()) {
+			decoder->SeekToSample(sample);
+			outputer->Reset();
+		}
+	}
+}
+
+bool CSoundPlayerImpl::OnCopyData(CSoundPlayerImpl* instance, LPVOID buf, DWORD buf_len)
+{
+	auto read_size = instance->decoder->Read(buf, buf_len);
+	if (read_size < buf_len) {
+		memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
+		return false;
+	}
+	return true;
+}
+
+void CSoundPlayerImpl::SetLastError(int code, const wchar_t* errmsg)
+{
+	lastErrorMessage = errmsg ? errmsg : L"";
+	lastErrorCode = code;
+}
+void CSoundPlayerImpl::SetLastError(int code, const char* errmsg)
+{
+	lastErrorMessage = errmsg ? StringHelper::AnsiToUnicode(errmsg) : L"";
+	lastErrorCode = code;
+}
+const wchar_t* CSoundPlayerImpl::GetLastErrorMessage()
+{
+	return lastErrorMessage.c_str();
+}
+
+void CSoundPlayerImpl::SetVolume(float volume, int index)
+{
+	if (outputer)
+		outputer->SetVolume(index, volume);
+}
+float CSoundPlayerImpl::GetVolume(int index)
+{
+	if (outputer)
+		return outputer->GetVolume(index);
+	return 0.0f;
+}
+
+TPlayerStatus CSoundPlayerImpl::GetState()
+{
+	return playerStatus;
+}
+TStreamFormat CSoundPlayerImpl::GetFormat() {
 	return openedFileFormat;
 }
-CSoundDecoder* CSoundPlayer::CreateDecoderWithFormat(TStreamFormat f)
+CSoundDecoder* CSoundPlayerImpl::CreateDecoderWithFormat(TStreamFormat f)
 {
 	switch (f)
 	{
@@ -110,45 +263,12 @@ CSoundDecoder* CSoundPlayer::CreateDecoderWithFormat(TStreamFormat f)
 	return nullptr;
 }
 
-double CSoundPlayer::GetPosition()
+void CSoundPlayerImpl::NotifyPlayEnd(bool error)
 {
-	return GetPositionSample() / (double)currentSampleRate;
-}
-void CSoundPlayer::SetPosition(double second)
-{
-	SetPositionSample(second * currentSampleRate);
-}
-double CSoundPlayer::GetDuration()
-{
-	if (decoder)
-		return decoder->GetLengthSecond();
-	return 0.0;
-}
-unsigned int CSoundPlayer::GetDurationSample()
-{
-	if (decoder)
-		return decoder->GetLengthSample();
-	return 0.0;
-}
-
-int CSoundPlayer::GetVolume()
-{
-	return 0;
-}
-
-void CSoundPlayer::SetLastError(int code, const wchar_t* errmsg)
-{
-	lastErrorMessage = errmsg ? errmsg : L"";
-	lastErrorCode = code;
-}
-void CSoundPlayer::SetLastError(int code, const char* errmsg)
-{
-	lastErrorMessage = errmsg ? StringHelper::AnsiToUnicode(errmsg) : L"";
-	lastErrorCode = code;
-}
-const wchar_t* CSoundPlayer::GetLastErrorMessage()
-{
-	return lastErrorMessage.c_str();
+	if (playerStatus != PlayEnd)
+		playerStatus = PlayEnd;
+	if (error)
+		Close();
 }
 
 

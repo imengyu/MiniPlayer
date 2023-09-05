@@ -36,9 +36,12 @@ enum TPlayerStatus
 };
 
 //播放器实例
-class CSoundPlayerBase
+class CSoundPlayer
 {
 public:
+	CSoundPlayer() {}
+	virtual ~CSoundPlayer() {}
+
 	//加载文件到当前播放器
 	//返回值：返回打开是否成功
 	virtual bool Load(const wchar_t* path) { return false; }
@@ -117,6 +120,7 @@ public:
 #define PLAYER_ERROR_UNKNOWN_FILE_FORMAT 3
 #define PLAYER_ERROR_NOT_SUPPORT_FORMAT 4
 #define PLAYER_ERROR_OUTPUT_ERROR 5
+#define PLAYER_ERROR_NOT_LOAD 6
 
 
 

@@ -9,7 +9,7 @@
 
 CSoundPlayer* CreatePlayer()
 {
-   return new CSoundPlayer();
+   return new CSoundPlayerImpl();
 }
 void DestroyPlayer(CSoundPlayer* player)
 {

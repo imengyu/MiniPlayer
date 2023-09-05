@@ -15,7 +15,7 @@ public:
 	static FLAC__StreamDecoderWriteStatus CFLACDecoder_FLAC__StreamDecoderWriteCallback(const FLAC__StreamDecoder * decoder, const FLAC__Frame * frame, const FLAC__int32 * const buffer[], void * data);
 	static void CFLACDecoder_FLAC__StreamDecoderMetadataCallback(const FLAC__StreamDecoder * decoder, const FLAC__StreamMetadata * metadata, void * data);
 
-	bool Open(LPWSTR file) override;
+	bool Open(const wchar_t* file) override;
 	bool Close() override;
 
 

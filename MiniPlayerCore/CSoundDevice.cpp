@@ -8,20 +8,66 @@ const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
+const IID IID_IAudioStreamVolume = __uuidof(IAudioStreamVolume);
 
-CSoundDevice::CSoundDevice(CSoundPlayer* parent)
+CSoundDevice::CSoundDevice(CSoundPlayerImpl* parent)
 {
   this->parent = parent;
+  memset(currentVolume, 0, sizeof(currentVolume));
+  hEventCreateDone = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventDestroyDone = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventResetDone = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventDestroy = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventPlay = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventStop = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventLoadData = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventReset = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventVolumeUpdate = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventGetVolume = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventGetPadding = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 CSoundDevice::~CSoundDevice()
 {
   if (createSuccess)
     Destroy();
+  CloseHandle(hEventCreateDone);
+  CloseHandle(hEventDestroyDone);
+  CloseHandle(hEventResetDone);
+  CloseHandle(hEventDestroy);
+  CloseHandle(hEventPlay);
+  CloseHandle(hEventStop);
+  CloseHandle(hEventLoadData);
+  CloseHandle(hEventReset);
+  CloseHandle(hEventVolumeUpdate);
+  CloseHandle(hEventGetVolume);
+  CloseHandle(hEventGetPadding);
 }
 
 void CSoundDevice::SetOnCopyDataCallback(OnCopyDataCallback callback)
 {
   copyDataCallback = callback;
+}
+
+float CSoundDevice::GetVolume(int index)
+{
+  SetEvent(hEventGetVolume);
+  WaitForSingleObject(hEventGetVolume, INFINITE);
+  return currentVolume[index];
+}
+void CSoundDevice::SetVolume(int index, float value)
+{
+  currentVolume[index] = value;
+  SetEvent(hEventVolumeUpdate);
+}
+
+UINT32 CSoundDevice::GetPosition()
+{
+  if (!createSuccess)
+    return 0;
+  SetEvent(hEventGetPadding);
+  WaitForSingleObject(hEventGetPadding, INFINITE);
+  ResetEvent(hEventGetPadding);
+  return numFramesPadding;
 }
 
 bool CSoundDevice::Create()
@@ -32,22 +78,41 @@ bool CSoundDevice::Create()
   std::thread playerThread(PlayerThread, this);
   playerThread.detach();
 
-  WaitForSingleObject(hEventCreateDone, 100);
+  ResetEvent(hEventCreateDone);
+  WaitForSingleObject(hEventCreateDone, INFINITE);
   ResetEvent(hEventCreateDone);
 
   return createSuccess;
 }
 void CSoundDevice::Destroy()
 {
-  SetEvent(hEventDestroy);
-  WaitForSingleObject(hEventDestroyDone, INFINITE);
-  ResetEvent(hEventDestroyDone);
+  if (createSuccess) {
+    SetEvent(hEventDestroy);
+    ResetEvent(hEventDestroyDone);
+    WaitForSingleObject(hEventDestroyDone, INFINITE);
+    ResetEvent(hEventDestroyDone);
+  }
 }
 void CSoundDevice::Reset()
 {
+  if (!createSuccess)
+    return;
   SetEvent(hEventReset);
+  ResetEvent(hEventResetDone);
   WaitForSingleObject(hEventResetDone, INFINITE);
   ResetEvent(hEventResetDone);
+}
+void CSoundDevice::Stop()
+{
+  if (!createSuccess)
+    return;
+  SetEvent(hEventStop);
+}
+void CSoundDevice::Start()
+{
+  if (!createSuccess)
+    return;
+  SetEvent(hEventPlay);
 }
 
 //100ns
@@ -55,9 +120,10 @@ void CSoundDevice::Reset()
 #define REFTIMES_PER_MILLISEC 10000
 
 #define EXIT_ON_ERROR(hresut) if (FAILED(hresut)) { device->parent->SetLastError(PLAYER_ERROR_OUTPUT_ERROR, \
-  StringHelper::FormatString(L"CSoundDevice create failed in line %d with hresult: %0x08X", __LINE__, hr).c_str()); \
+  StringHelper::FormatString(L"CSoundDevice error in line %d with HRESULT: 0x%08X", __LINE__, hr).c_str()); \
   SetEvent(device->hEventCreateDone); \
   device->createSuccess = false; \
+   hasError = true; \
   goto EXIT; }
 
 void CSoundDevice::PlayerThread(void* p)
@@ -70,92 +136,99 @@ void CSoundDevice::PlayerThread(void* p)
   IMMDevice* pDevice = NULL;
   IAudioClient* pAudioClient = NULL;
   IAudioRenderClient* pRenderClient = NULL;
-  UINT32 bufferFrameCount;
+  IAudioStreamVolume* pAudioStreamVolume = NULL;
   DWORD flags = 0;
   BYTE* pData;
-  WAVEFORMATEX* pwfx;
+  WAVEFORMATEX* pwfx = nullptr;
 
+  UINT32 channelCount;
   UINT32 numFramesAvailable;
-  UINT32 numFramesPadding;
   bool hasMoreData;
-
+  bool hasError = false;
 
   //线程等待多个消息，根据消息执行不同的任务
-  int waitMessagesResult = 0;
-  HANDLE waitMessages[6] = {
+  int waitMessagesResult = -1;
+  HANDLE waitMessages[8] = {
      device->hEventDestroy,
      device->hEventPlay,
      device->hEventStop,
      device->hEventLoadData,
      device->hEventReset,
+     device->hEventVolumeUpdate,
+     device->hEventGetVolume,
+     device->hEventGetPadding
   };
 
-  hr = CoInitialize(0);
+  hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
   EXIT_ON_ERROR(hr);
 
+  hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
+  EXIT_ON_ERROR(hr);
+
+  hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
+  EXIT_ON_ERROR(hr);
+
+  hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
+  EXIT_ON_ERROR(hr);
+
+  //hr = pAudioClient->GetMixFormat(&pwfx);
+  //EXIT_ON_ERROR(hr);
+
+  //加载当前音频格式
+  pwfx = (WAVEFORMATEX*)CoTaskMemAlloc(sizeof(WAVEFORMATEX));
   pwfx->nSamplesPerSec = device->parent->GetSampleRate();
   pwfx->nChannels = device->parent->GetChannelsCount();
   pwfx->wFormatTag = WAVE_FORMAT_PCM;
   pwfx->wBitsPerSample = device->parent->GetBitPerSample();
   pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
   pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
+  pwfx->cbSize = 0;
 
-  hr = CoCreateInstance(
-    CLSID_MMDeviceEnumerator, NULL,
-    CLSCTX_ALL, IID_IMMDeviceEnumerator,
-    (void**)&pEnumerator);
-  EXIT_ON_ERROR(hr);
-
-  hr = pEnumerator->GetDefaultAudioEndpoint(
-    eRender, eConsole, &pDevice);
-  EXIT_ON_ERROR(hr);
-
-  hr = pDevice->Activate(
-    IID_IAudioClient, CLSCTX_ALL,
-    NULL, (void**)&pAudioClient);
-  EXIT_ON_ERROR(hr);
-
-  hr = pAudioClient->GetMixFormat(&pwfx);
-  EXIT_ON_ERROR(hr);
-
+  //初始化
   hr = pAudioClient->Initialize(
     AUDCLNT_SHAREMODE_SHARED,
-    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM,
     hnsRequestedDuration,
     0,
     pwfx,
-    NULL);
+    NULL
+  );
   EXIT_ON_ERROR(hr);
 
   hr = pAudioClient->SetEventHandle(device->hEventLoadData);
   EXIT_ON_ERROR(hr);
 
   // 获取已分配缓冲区的实际大小。
-  hr = pAudioClient->GetBufferSize(&bufferFrameCount);
+  hr = pAudioClient->GetBufferSize(&device->bufferFrameCount);
   EXIT_ON_ERROR(hr);
 
-  hr = pAudioClient->GetService(
-    IID_IAudioRenderClient,
-    (void**)&pRenderClient);
+  hr = pAudioClient->GetService(IID_IAudioRenderClient, (void**)&pRenderClient);
+  EXIT_ON_ERROR(hr);
+
+  hr = pAudioClient->GetService(IID_IAudioStreamVolume, (void**)&pAudioStreamVolume);
   EXIT_ON_ERROR(hr);
 
 RESET:
   hasMoreData = false;
+  device->isStarted = false;
+  device->createSuccess = true;
+
   SetEvent(device->hEventResetDone);
+  SetEvent(device->hEventCreateDone);
 
   // 抓取整个缓冲区进行初始填充操作。
-  hr = pRenderClient->GetBuffer(bufferFrameCount, &pData);
+  hr = pRenderClient->GetBuffer(device->bufferFrameCount, &pData);
   EXIT_ON_ERROR(hr);
 
   // 将初始数据加载到共享缓冲区中。
-  device->copyDataCallback(device->parent, pData, bufferFrameCount);
+  device->copyDataCallback(device->parent, pData, device->bufferFrameCount);
 
-  hr = pRenderClient->ReleaseBuffer(bufferFrameCount, flags);
+  hr = pRenderClient->ReleaseBuffer(device->bufferFrameCount, flags);
   EXIT_ON_ERROR(hr);
 
   // 计算分配的缓冲区的实际持续时间。
-  hnsActualDuration = (double)REFTIMES_PER_SEC * bufferFrameCount / pwfx->nSamplesPerSec;
-  
+  hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * device->bufferFrameCount / pwfx->nSamplesPerSec);
+
   //循环
   while (device->createSuccess)
   {
@@ -169,25 +242,27 @@ RESET:
       //开始播放
       ResetEvent(device->hEventPlay);
       pAudioClient->Start();
+      device->isStarted = true;
       break;
     case 2:
       //停止播放
       ResetEvent(device->hEventStop);
       pAudioClient->Stop();
+      device->isStarted = false;
       break;
     case 3:
       //加载数据
 
-      hr = pAudioClient->GetCurrentPadding(&numFramesPadding);
+      hr = pAudioClient->GetCurrentPadding(&device->numFramesPadding);
       EXIT_ON_ERROR(hr)
 
-        numFramesAvailable = bufferFrameCount - numFramesPadding;
+      numFramesAvailable = device->bufferFrameCount - device->numFramesPadding;
 
       hr = pRenderClient->GetBuffer(numFramesAvailable, &pData);
       EXIT_ON_ERROR(hr)
 
-        //读取
-        hasMoreData = device->copyDataCallback(device->parent, pData, numFramesAvailable);
+      //读取
+      hasMoreData = device->copyDataCallback(device->parent, pData, numFramesAvailable);
 
       hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
       EXIT_ON_ERROR(hr)
@@ -208,10 +283,31 @@ RESET:
       pAudioClient->Stop();
       pAudioClient->Reset();
       goto RESET;
+    case 5:
+      //音量更改
+      ResetEvent(device->hEventVolumeUpdate);
+
+      hr = pAudioStreamVolume->GetChannelCount(&channelCount);
+      if (SUCCEEDED(hr)) 
+        pAudioStreamVolume->SetAllVolumes(channelCount, device->currentVolume);
+      break;
+    case 6:
+      //音量获取
+      ResetEvent(device->hEventGetVolume);
+
+      hr = pAudioStreamVolume->GetChannelCount(&channelCount);
+      if (SUCCEEDED(hr)) {
+        pAudioStreamVolume->GetAllVolumes(channelCount, device->currentVolume);
+      }
+      break;
+    case 7:
+      //位置获取
+      ResetEvent(device->hEventGetPadding);
+      pAudioClient->GetCurrentPadding(&device->numFramesPadding);
+      break;
     default:
       break;
     }
-
 
     //等待消息
     waitMessagesResult = WaitForMultipleObjects(
@@ -225,7 +321,11 @@ RESET:
 EXIT:
   if (pwfx)
     CoTaskMemFree(pwfx);
+
+  device->isStarted = false;
   device->createSuccess = false;
+  device->parent->NotifyPlayEnd(hasError);
+
   if (pEnumerator)
     pEnumerator->Release();
   if (pDevice)
