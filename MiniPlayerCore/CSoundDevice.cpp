@@ -2,6 +2,7 @@
 #include "CSoundDevice.h"
 #include "CSoundPlayer.h"
 #include "StringHelper.h"
+#include "DbgHelper.h"
 #include <thread>
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
@@ -130,7 +131,6 @@ void CSoundDevice::PlayerThread(void* p)
 {
   auto device = (CSoundDevice*)p;
   HRESULT hr;
-  REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
   REFERENCE_TIME hnsActualDuration;
   IMMDeviceEnumerator* pEnumerator = NULL;
   IMMDevice* pDevice = NULL;
@@ -176,6 +176,9 @@ void CSoundDevice::PlayerThread(void* p)
 
   //加载当前音频格式
   pwfx = (WAVEFORMATEX*)CoTaskMemAlloc(sizeof(WAVEFORMATEX));
+  if (!pwfx)
+    goto EXIT;
+
   pwfx->nSamplesPerSec = device->parent->GetSampleRate();
   pwfx->nChannels = device->parent->GetChannelsCount();
   pwfx->wFormatTag = WAVE_FORMAT_PCM;
@@ -187,8 +190,8 @@ void CSoundDevice::PlayerThread(void* p)
   //初始化
   hr = pAudioClient->Initialize(
     AUDCLNT_SHAREMODE_SHARED,
-    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM,
-    hnsRequestedDuration,
+    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+    0,
     0,
     pwfx,
     NULL
@@ -221,7 +224,7 @@ RESET:
   EXIT_ON_ERROR(hr);
 
   // 将初始数据加载到共享缓冲区中。
-  device->copyDataCallback(device->parent, pData, device->bufferFrameCount);
+  device->copyDataCallback(device->parent, pData, device->bufferFrameCount * pwfx->nBlockAlign);
 
   hr = pRenderClient->ReleaseBuffer(device->bufferFrameCount, flags);
   EXIT_ON_ERROR(hr);
@@ -252,17 +255,20 @@ RESET:
       break;
     case 3:
       //加载数据
+      ResetEvent(device->hEventLoadData);
 
       hr = pAudioClient->GetCurrentPadding(&device->numFramesPadding);
       EXIT_ON_ERROR(hr)
 
       numFramesAvailable = device->bufferFrameCount - device->numFramesPadding;
+      if (numFramesAvailable == 0)
+        break;
 
       hr = pRenderClient->GetBuffer(numFramesAvailable, &pData);
       EXIT_ON_ERROR(hr)
-
+        
       //读取
-      hasMoreData = device->copyDataCallback(device->parent, pData, numFramesAvailable);
+      hasMoreData = device->copyDataCallback(device->parent, pData, numFramesAvailable * pwfx->nBlockAlign);
 
       hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
       EXIT_ON_ERROR(hr)

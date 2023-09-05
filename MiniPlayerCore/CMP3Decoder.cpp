@@ -4,7 +4,7 @@
 
 CMP3Decoder::CMP3Decoder()
 {
-
+	len = 0;
 }
 CMP3Decoder::~CMP3Decoder()
 {

@@ -168,25 +168,13 @@ unsigned int CSoundPlayerImpl::GetDurationSample()
 }
 unsigned int CSoundPlayerImpl::GetPositionSample()
 {
-	//精确时间为累计输出器输出的sample
-	auto ouputerPos = outputer->GetPosition();
-
-	if (ouputerPos != lastGetMusicPosSample && playerStatus == Playing) {
-		DWORD passedSamples = 0;
-		if (ouputerPos > lastGetMusicPosSample)
-			passedSamples = (ouputerPos - lastGetMusicPosSample);
-		else
-			passedSamples = (ouputerPos + (outputer->GetBufferSize() - lastGetMusicPosSample));
-		lastGetMusicPosSample = ouputerPos;
-		currentPlayPosSample += passedSamples;
-	}
-
-	return currentPlayPosSample;
+	if (decoder)
+		return decoder->GetCurrentPositionSample();
+	return 0;
 }
 void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
 {
 	if (playerStatus != NotOpen) {
-		currentPlayPosSample = sample;
 		if (sample != decoder->GetCurrentPositionSample()) {
 			decoder->SeekToSample(sample);
 			outputer->Reset();

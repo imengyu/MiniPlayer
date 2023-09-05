@@ -10,11 +10,12 @@
 #pragma comment(lib,"MiniPlayerCore.lib")  
 
 CSoundPlayer* player;
+CSoundPlayer* player2;
 
 int main()
 {
 	setlocale(LC_ALL, "chs");
-	OPENFILENAME ofn = { 0 };
+	OPENFILENAME ofn = {0};
 	TCHAR strFilename[MAX_PATH] = { 0 };
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();
@@ -36,6 +37,7 @@ int main()
 	wprintf(L"音乐：%s\n", strFilename);
 	if (player->Load(strFilename))
 	{
+
 		wprintf(L"音乐已打开\n");
 		if (player->Play())
 		{

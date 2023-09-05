@@ -53,16 +53,12 @@ private:
 
 	TStreamFormat openedFileFormat = TStreamFormat::sfUnknown;
 	
-	DWORD currentPlayPosSample = 0;
-	DWORD lastGetMusicPosSample = 0;
 	ULONG currentSampleRate = 0;
 	int currentChannels = 0;
 	int currentBitsPerSample = 0;
 
 	bool fileOpenedState = false;
 	TPlayerStatus playerStatus = TPlayerStatus::NotOpen;
-
-
 
 	int lastErrorCode = 0;
 	std::wstring lastErrorMessage;
