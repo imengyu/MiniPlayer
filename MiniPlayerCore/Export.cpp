@@ -266,6 +266,7 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 	result->height = videoStream->codecpar->height;
 	result->duration = (double)formatContext->duration / AV_TIME_BASE; //s
 	result->frameRate = (double)videoStream->r_frame_rate.num / videoStream->r_frame_rate.den;
+	strcpy_s(result->format, formatContext->iformat->long_name);
 	result->success = true;
 
 EXIT:

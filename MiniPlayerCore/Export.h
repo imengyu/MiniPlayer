@@ -64,6 +64,7 @@ extern "C" MINI_PLAYER_EXPORT TStreamFormat GetAudioFileFormat(const wchar_t* fi
 struct READ_VIDEO_INFO {
   bool success;
   wchar_t lastError[256];
+  char format[100];
   double duration;
   int width;
   int height;
