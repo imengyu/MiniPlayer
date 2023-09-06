@@ -87,10 +87,16 @@ public:
 	*/
 	virtual TStreamFormat GetFormat() { return TStreamFormat::sfUnknown; }
 
-	//设置音量（0-100）
-	virtual void SetVolume(int volume) {}
-	//获取音量（0-100）
-	virtual int GetVolume() { return 0; }
+	//设置音量
+	//参数：
+	//  * volume 音量（0.0-1.0）
+	//  * index 设置音量的通道，例如如果是双通道声音，则0为左声道，1为右声道。-1为设置所有声道音量
+	virtual void SetVolume(float volume, int index = 0) {}
+	//获取音量
+	//参数：
+	//  * index 获取音量的通道，例如如果是双通道声音，则0为左声道，1为右声道
+	//返回值：音量（0.0-1.0）
+	virtual float GetVolume(int index = 0) { return 0;  }
 
 	//设置错误状态
 	virtual void SetLastError(int code, const wchar_t* errmsg) {}
