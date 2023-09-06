@@ -93,10 +93,9 @@ bool CSoundDevice::Create()
 void CSoundDevice::Destroy()
 {
   if (createSuccess) {
+    ResetEvent(hEventDestroyDone);
     SetEvent(hEventDestroy);
-    ResetEvent(hEventDestroyDone);
-    WaitForSingleObject(hEventDestroyDone, INFINITE);
-    ResetEvent(hEventDestroyDone);
+    WaitForSingleObject(hEventDestroyDone, 100);
   }
 }
 void CSoundDevice::Reset()
@@ -105,7 +104,7 @@ void CSoundDevice::Reset()
     return;
   SetEvent(hEventReset);
   ResetEvent(hEventResetDone);
-  WaitForSingleObject(hEventResetDone, INFINITE);
+  WaitForSingleObject(hEventResetDone, 100);
   ResetEvent(hEventResetDone);
 }
 void CSoundDevice::Stop()

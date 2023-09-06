@@ -1,10 +1,15 @@
 #pragma once
-#include "CSoundPlayer.h"
 
 #ifdef MINI_PLAYER_LIB
+
+#include "CSoundPlayer.h"
 #define MINI_PLAYER_EXPORT __declspec(dllexport)
+
 #else
+
+#include "CSoundPlayerExport.h"
 #define MINI_PLAYER_EXPORT 
+
 #endif
 
 //
