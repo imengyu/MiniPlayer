@@ -110,8 +110,8 @@ public:
 
 
 	virtual unsigned int GetDurationSample() { return 0; }
-	virtual unsigned int GetPositionSample() { return 0; }
-	virtual void SetPosition(unsigned int second) {}
+	virtual unsigned int GetPositionSample() { return 0; }	
+	virtual void SetPositionSample(unsigned int sample) {}
 };
 
 #define PLAYER_ERROR_NONE 0
