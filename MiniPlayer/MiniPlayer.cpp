@@ -19,7 +19,7 @@ int main()
 	TCHAR strFilename[MAX_PATH] = { 0 };
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();
-	ofn.lpstrFilter = TEXT("音乐文件\0*.mp3;*.wav;*.mid;*.midi;*.ogg;*.pcm\0All(*.*)\0*.*\0\0\0");//设置过滤  
+	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.mid;*.midi;*.ogg;*.pcm\0All(*.*)\0*.*\0\0\0");//设置过滤  
 	ofn.nFilterIndex = 1;//过滤器索引  
 	ofn.lpstrFile = strFilename;
 	ofn.nMaxFile = sizeof(strFilename);
@@ -32,6 +32,25 @@ int main()
 		system("PAUSE");
 		return 0;
 	}
+
+	auto info = GetVideoInfo(strFilename);
+
+	if (info->success) {
+		wprintf(L"GetVideoInfo success\n");
+		wprintf(L"duration: %f\n", info->duration);
+		wprintf(L"width: %d\n", info->width);
+		wprintf(L"height: %d\n", info->height);
+		wprintf(L"frameRate: %f\n", info->frameRate);
+	}
+	else {
+		wprintf(L"GetVideoInfo Failed %s\n", info->lastError);
+	}
+
+	ReleaseVideoInfo(info);
+
+
+
+	/*
 	player = CreatePlayer();
 
 	wprintf(L"音乐：%s\n", strFilename);
@@ -64,5 +83,6 @@ int main()
 		wprintf(L"打开文件失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
 	}
 	DestroyPlayer(player);
+	*/
 	return 0;
 }

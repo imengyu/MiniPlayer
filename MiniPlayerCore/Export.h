@@ -59,3 +59,37 @@ extern "C" MINI_PLAYER_EXPORT double GetAudioDurationFast(const wchar_t* file);
 //   格式枚举
 //
 extern "C" MINI_PLAYER_EXPORT TStreamFormat GetAudioFileFormat(const wchar_t* file);
+
+//读取视频信息
+struct READ_VIDEO_INFO {
+  bool success;
+  wchar_t lastError[256];
+  double duration;
+  int width;
+  int height;
+  double frameRate;
+};
+
+//
+// * 说明：
+//   释放视频格式信息结构体
+//
+// * 参数：
+//   * ptr ：格式信息结构体
+// 
+// * 返回：
+//   无
+//
+extern "C" MINI_PLAYER_EXPORT void ReleaseVideoInfo(READ_VIDEO_INFO * ptr);
+
+//
+// * 说明：
+//   获取视频文件的格式信息
+//
+// * 参数：
+//   * pchFileName ：文件路径
+// 
+// * 返回：
+//   格式信息结构体，不需要使用时需要调用 ReleaseVideoInfo 函数释放
+//
+extern "C" MINI_PLAYER_EXPORT READ_VIDEO_INFO * GetVideoInfo(const wchar_t* pchFileName);

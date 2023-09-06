@@ -4,6 +4,10 @@
 #include "COggDecoder.h"
 #include "CWavDecoder.h"
 #include "StringHelper.h"
+extern "C" {
+#include "libavcodec/avcodec.h"
+#include "libavformat/avformat.h"
+}
 
 #pragma region Player creation
 
@@ -202,6 +206,73 @@ double GetAudioDurationFast(const wchar_t* file)
 	}
 	}
 	return 0;
+}
+
+#pragma endregion
+
+#pragma region Video utils
+
+void ReleaseVideoInfo(READ_VIDEO_INFO* ptr) {
+	delete ptr;
+}
+
+READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
+	READ_VIDEO_INFO* result = new READ_VIDEO_INFO();
+	result->success = false;
+
+	int videoIndex = -1;
+	int audioIndex = -1;
+	auto formatContext = avformat_alloc_context();
+	auto ansiPath = StringHelper::UnicodeToUtf8(pchFileName);
+	AVStream* videoStream;
+	AVStream* audioStream;
+
+	//打开视频数据源
+	int openState = avformat_open_input(&formatContext, ansiPath.c_str(), nullptr, nullptr);
+	if (openState < 0) {
+		char errBuf[128];
+		if (av_strerror(openState, errBuf, sizeof(errBuf)) == 0)
+			swprintf_s(result->lastError, L"Failed to open input file, error : %hs", errBuf);
+		goto EXIT;
+	}
+	//为分配的AVFormatContext 结构体中填充数据
+	if (avformat_find_stream_info(formatContext, nullptr) < 0) {
+		swprintf_s(result->lastError, L"Failed to read the input video stream information");
+		goto EXIT;
+	}
+
+	//找到对应的流
+	for (int i = 0; i < formatContext->nb_streams; i++) {
+		if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+			videoIndex = i;
+			break;
+		}
+	}
+	for (int i = 0; i < formatContext->nb_streams; i++) {
+		if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+			audioIndex = i;
+			break;
+		}
+	}
+	if (videoIndex == -1) {
+		swprintf_s(result->lastError, L"Not found video stream!");
+		goto EXIT;
+	}
+
+	videoStream = formatContext->streams[videoIndex];
+	audioStream = formatContext->streams[audioIndex];
+
+	result->width = videoStream->codecpar->width;
+	result->height = videoStream->codecpar->height;
+	result->duration = (double)formatContext->duration / AV_TIME_BASE; //s
+	result->frameRate = (double)videoStream->r_frame_rate.num / videoStream->r_frame_rate.den;
+	result->success = true;
+
+EXIT:
+	avformat_close_input(&formatContext);
+	avformat_free_context(formatContext);
+
+	return result;
 }
 
 #pragma endregion

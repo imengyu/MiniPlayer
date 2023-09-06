@@ -1,6 +1,11 @@
 ﻿// dllmain.cpp : 定义 DLL 应用程序的入口点。
 #include "pch.h"
 #include <mpg123.h>
+extern "C" {
+#include "libavcodec/avcodec.h"
+#include "libavformat/avformat.h"
+#include "libavformat/avio.h"
+}
 
 HINSTANCE hInst;
 
@@ -16,6 +21,8 @@ BOOL APIENTRY DllMain(HMODULE hModule,
       MessageBox(NULL, L"Initialization error", L"Failed init mpg123!", MB_ICONERROR);
       return FALSE;
     }
+    //注册所有组件
+    avformat_network_init();
     hInst = hModule;
     break;
   case DLL_THREAD_ATTACH:

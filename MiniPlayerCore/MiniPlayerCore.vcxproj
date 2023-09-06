@@ -72,13 +72,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg\;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(SolutionDir)MiniPlayerCore\Decorders\;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg\;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(SolutionDir)MiniPlayerCore\Decorders\;$(SolutionDir)MiniPlayerCore\FFmpeg\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Debug;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Debug;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Debug;$(SolutionDir)MiniPlayerCore\FFmpeg\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(SolutionDir)MiniPlayerCore\Decorders\;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Release;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Release;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Release;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Release;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Release;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123;$(SolutionDir)MiniPlayerCore\Decorders\libogg;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis;$(SolutionDir)MiniPlayerCore\Decorders\faac\include;$(SolutionDir)MiniPlayerCore\Decorders\faad\include;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC;$(SolutionDir)MiniPlayerCore\Decorders\;$(SolutionDir)MiniPlayerCore\FFmpeg\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)MiniPlayerCore\Decorders\libmpg123\Release;$(SolutionDir)MiniPlayerCore\Decorders\libogg\Release;$(SolutionDir)MiniPlayerCore\Decorders\libvorbis\Release;$(SolutionDir)MiniPlayerCore\Decorders\libFLAC\Release;$(SolutionDir)MiniPlayerCore\Decorders\faad\libfaad\Release;$(SolutionDir)MiniPlayerCore\Decorders\faac\libfaac\Release;$(SolutionDir)MiniPlayerCore\FFmpeg\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -100,7 +100,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>Shlwapi.lib;libFLAC_static.lib;libogg.lib;libvorbis.lib;libfaad.lib;libfaac.lib;libmpg123.lib;wmvcore.lib;winmm.lib;dxguid.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;libFLAC_static.lib;libogg.lib;libvorbis.lib;libfaad.lib;libfaac.lib;libmpg123.lib;avcodec.lib;avdevice.lib;avfilter.lib;avutil.lib;avformat.lib;swresample.lib;swscale.lib;wmvcore.lib;winmm.lib;dxguid.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -121,7 +121,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalDependencies>Shlwapi.lib;libFLAC_static.lib;libogg.lib;libvorbis.lib;libfaad.lib;libfaac.lib;libmpg123.lib;wmvcore.lib;winmm.lib;dxguid.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;libFLAC_static.lib;libogg.lib;libvorbis.lib;libfaad.lib;libfaac.lib;libmpg123.lib;avcodec.lib;avdevice.lib;avfilter.lib;avutil.lib;avformat.lib;swresample.lib;swscale.lib;wmvcore.lib;winmm.lib;dxguid.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/SAFESEH:NO %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
