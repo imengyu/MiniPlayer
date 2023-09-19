@@ -176,8 +176,9 @@ void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
 {
 	if (playerStatus != NotOpen) {
 		if (sample != decoder->GetCurrentPositionSample()) {
+			outputer->Stop();
 			decoder->SeekToSample(sample);
-			outputer->Reset();
+			outputer->Start();
 		}
 	}
 }
