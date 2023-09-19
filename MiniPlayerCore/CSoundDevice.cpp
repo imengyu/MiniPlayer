@@ -113,11 +113,12 @@ void CSoundDevice::Stop()
     return;
   SetEvent(hEventStop);
 }
-void CSoundDevice::Start()
+bool CSoundDevice::Start()
 {
-  if (!createSuccess)
-    return;
+  if (!createSuccess && !Create())
+    return false;
   SetEvent(hEventPlay);
+  return true;
 }
 
 //100ns

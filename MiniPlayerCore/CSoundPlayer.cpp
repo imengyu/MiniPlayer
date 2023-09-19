@@ -104,9 +104,12 @@ bool CSoundPlayerImpl::Play()
 	if (playerStatus == Playing) {
 		return true;
 	}
-	outputer->Start();
-	playerStatus = TPlayerStatus::Playing;
-	return true;
+	bool rs = outputer->Start();
+	if (rs)
+		playerStatus = TPlayerStatus::Playing;
+	else
+		Close();
+	return rs;
 }
 bool CSoundPlayerImpl::Pause()
 {
@@ -176,9 +179,11 @@ void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
 {
 	if (playerStatus != NotOpen) {
 		if (sample != decoder->GetCurrentPositionSample()) {
-			outputer->Stop();
+			if (playerStatus == Playing)
+				outputer->Stop();
 			decoder->SeekToSample(sample);
-			outputer->Start();
+			if (playerStatus == Playing)
+				outputer->Start();
 		}
 	}
 }
@@ -254,10 +259,10 @@ CSoundDecoder* CSoundPlayerImpl::CreateDecoderWithFormat(TStreamFormat f)
 
 void CSoundPlayerImpl::NotifyPlayEnd(bool error)
 {
-	if (playerStatus != PlayEnd)
-		playerStatus = PlayEnd;
 	if (error)
 		Close();
+	else if (playerStatus != PlayEnd)
+		playerStatus = PlayEnd;
 }
 
 

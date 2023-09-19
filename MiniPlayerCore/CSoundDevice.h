@@ -17,7 +17,7 @@ public:
   void Destroy();
   void Reset();
   void Stop();
-  void Start();
+  bool Start();
 
   void SetOnCopyDataCallback(OnCopyDataCallback callback);
 
