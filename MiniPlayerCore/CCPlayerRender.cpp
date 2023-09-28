@@ -13,7 +13,7 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   externalData = data;
 
   audioDevice = CreateAudioDevice(data);
-  videoDevice = CreateVideoDevice();
+  videoDevice = CreateVideoDevice(data);
 
   //初始化SwsContext
   swsContext = sws_getContext(
@@ -45,10 +45,18 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   if (audioDeviceDefaultFormatInfo.fmt == 0)
     audioDeviceDefaultFormatInfo.fmt = externalData->AudioCodecContext->sample_fmt;
 
+  int distChannels = 0;
+  switch (audioDeviceDefaultFormatInfo.channels)
+  {
+  case 1: distChannels = AV_CH_LAYOUT_MONO; break;
+  case 2: distChannels = AV_CH_LAYOUT_STEREO; break;
+  case 0:
+  default: break;
+  }
+
   // 配置输入/输出通道类型
   av_opt_set_chlayout(swrContext, "in_channel_layout", &externalData->AudioCodecContext->ch_layout, 0);
-  // 这里 AUDIO_DEST_CHANNEL_LAYOUT = AV_CH_LAYOUT_STEREO，即 立体声
-  av_opt_set_int(swrContext, "out_channel_layout", AUDIO_DEST_CHANNEL_LAYOUT, 0);
+  av_opt_set_int(swrContext, "out_channel_layout", distChannels, 0);
   // 配置输入/输出采样率
   av_opt_set_int(swrContext, "in_sample_rate", externalData->AudioCodecContext->sample_rate, 0);
   av_opt_set_int(swrContext, "out_sample_rate", audioDeviceDefaultFormatInfo.sampleRate, 0);
@@ -145,12 +153,16 @@ void CCPlayerRender::Reset() {
   curAudioPts = 0;
 }
 
+void CCPlayerRender::SetVolume(int vol) {
+  if (audioDevice)
+    audioDevice->SetVolume(-1, vol / 100.0f);
+}
 void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
 {
   externalData->Player->SetLastError(code, errmsg);
 }
 
-CCVideoDevice* CCPlayerRender::CreateVideoDevice() {
+CCVideoDevice* CCPlayerRender::CreateVideoDevice(CCVideoPlayerExternalData* data) {
   return new CCVideoDevice();
 }
 CSoundDevice* CCPlayerRender::CreateAudioDevice(CCVideoPlayerExternalData* data) {
@@ -330,9 +342,5 @@ bool CCPlayerRender::RenderAudioBufferData(uint8_t** buf, DWORD* len) {
   return true;
 }
 
-void CCPlayerRender::SetVolume(int vol) {
-  if (audioDevice)
-    audioDevice->SetVolume(-1, vol / 100.0f);
-}
 
 

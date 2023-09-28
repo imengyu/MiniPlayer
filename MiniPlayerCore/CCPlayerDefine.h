@@ -68,10 +68,6 @@ public:
   int64_t StartTime = 0;
 };
 
-
-//音频输出配置
-#define AUDIO_DEST_CHANNEL_LAYOUT AV_CH_LAYOUT_STEREO
-
 //AAC 1024
 #define ACC_NB_SAMPLES 1024
 
