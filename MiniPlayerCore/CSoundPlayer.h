@@ -6,7 +6,7 @@
 #include <string>
 
 //²¥·ÅÆ÷ÊµÀý
-class CSoundPlayerImpl : public CSoundPlayer
+class CSoundPlayerImpl : public CSoundPlayer, public CSoundDeviceHoster
 {
 public:
 	CSoundPlayerImpl();
@@ -43,9 +43,10 @@ public:
 	void SetPositionSample(unsigned int sample);
 
 	void NotifyPlayEnd(bool error);
+	bool GetShouldReSample() { return true; }
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
-	static bool OnCopyData(CSoundPlayerImpl* instance, LPVOID buf, DWORD buf_len);
+	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len);
 
 private:
 	CSoundDecoder* decoder = nullptr;

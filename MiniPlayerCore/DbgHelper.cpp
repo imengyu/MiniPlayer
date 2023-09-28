@@ -11,3 +11,5 @@ void DbgPrintf(wchar_t const * const _Format, ...)
 	OutputDebugString(w.c_str());
 	va_end(marker);
 }
+
+

@@ -1,16 +1,36 @@
 #pragma once
 #include <Audioclient.h>
 #include <mmdeviceapi.h>
+extern "C" {
+#include "libswresample/swresample.h"
+#include "libswscale/swscale.h"
+}
+
 #define BUFFERNOTIFYSIZE 192000
 
-class CSoundPlayerImpl;
+class CSoundDeviceHoster {
+public:
+  virtual void NotifyPlayEnd(bool hasError) {}
+  virtual void SetLastError(int code, const wchar_t*message) {}
 
-typedef bool(*OnCopyDataCallback)(CSoundPlayerImpl* instance, LPVOID buf, DWORD  buf_len);
+  bool GetShouldReSample() { return false; }
+  unsigned long GetSampleRate() { return 0; }
+  int GetBitPerSample() { return 0; }
+  int GetChannelsCount() { return 0; }
+};
+
+typedef bool(*OnCopyDataCallback)(CSoundDeviceHoster* instance, LPVOID buf, DWORD  buf_len);
+
+struct CSoundDeviceDeviceDefaultFormatInfo {
+  AVSampleFormat fmt;
+  unsigned long sampleRate;
+  int channels;
+};
 
 class CSoundDevice
 {
 public:
-  CSoundDevice(CSoundPlayerImpl* parent);
+  CSoundDevice(CSoundDeviceHoster* parent);
   ~CSoundDevice();
 
   bool Create();
@@ -26,10 +46,15 @@ public:
 
   UINT32 GetPosition();
   UINT32 GetBufferSize() { return bufferFrameCount; }
+
+  CSoundDeviceDeviceDefaultFormatInfo& RequestDeviceDefaultFormatInfo();
+
 private:
-  CSoundPlayerImpl* parent;
+  CSoundDeviceDeviceDefaultFormatInfo deviceDefaultFormatInfo;
+  CSoundDeviceHoster* parent;
   bool createSuccess = false;
   bool isStarted = false;
+  bool shouldReSample = false;
   float currentVolume[5];
   UINT32 bufferFrameCount = 0;
   UINT32 numFramesPadding = 0;

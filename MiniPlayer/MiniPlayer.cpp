@@ -33,6 +33,7 @@ int main()
 		return 0;
 	}
 
+	/*
 	auto info = GetVideoInfo(strFilename);
 
 	if (info->success) {
@@ -50,7 +51,7 @@ int main()
 
 
 
-	/*
+	*/
 	player = CreatePlayer();
 
 	wprintf(L"音乐：%s\n", strFilename);
@@ -65,12 +66,20 @@ int main()
 			for (int i = 0; i < 8; i++)
 				putchar('\b');
 
-			while (player->GetState() != TPlayerStatus::PlayEnd)
+			auto state = player->GetState();
+			while (state != TPlayerStatus::PlayEnd)
 			{
 				for (int i = 0; i < 7; i++)
 					putchar('\b');
 				wprintf(L"%7.3f", player->GetPosition());
 				Sleep(250);
+
+				if (state == TPlayerStatus::NotOpen) {
+					wprintf(L"播放失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
+					break;
+				}
+
+				state = player->GetState();
 			}
 		}
 		else wprintf(L"播放失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
@@ -83,6 +92,5 @@ int main()
 		wprintf(L"打开文件失败：%d %s\n", player->GetLastError(), player->GetLastErrorMessage());
 	}
 	DestroyPlayer(player);
-	*/
 	return 0;
 }

@@ -25,6 +25,18 @@
     <Filter Include="源文件\Decoders">
       <UniqueIdentifier>{6f01e149-377a-4fef-b87d-25143b3b5337}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\Sound">
+      <UniqueIdentifier>{0dde7f60-36e5-4ab1-98e5-fe00fc75608d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Sound">
+      <UniqueIdentifier>{68ecd291-4654-42d5-9947-c5972cab2ddc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Video">
+      <UniqueIdentifier>{ca82c53b-301b-49ca-8d53-cc5c84a00290}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Video">
+      <UniqueIdentifier>{f03ecf5a-8488-443f-a0f0-5bd704603436}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -33,16 +45,7 @@
     <ClInclude Include="pch.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CSoundPlayer.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="Export.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="CSoundDecoder.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="CSoundDevice.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="CMP3Decoder.h">
@@ -72,11 +75,41 @@
     <ClInclude Include="CriticalSection.h">
       <Filter>头文件\Helpers</Filter>
     </ClInclude>
-    <ClInclude Include="CSoundPlayerExport.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CSoundPlayerExport.h">
+      <Filter>头文件\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="CSoundDecoder.h">
+      <Filter>头文件\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="CSoundDevice.h">
+      <Filter>头文件\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="CSoundPlayer.h">
+      <Filter>头文件\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="CCDecodeQueue.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="CCPlayerDefine.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="CCPlayerRender.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="CCVideoDevice.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="CCVideoPlayer.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.h">
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="CCVideoPlayerExport.h">
+      <Filter>头文件\Video</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -86,16 +119,7 @@
     <ClCompile Include="pch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CSoundPlayer.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="Export.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="CSoundDecoder.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="CSoundDevice.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CAacDecoder.cpp">
@@ -121,6 +145,33 @@
     </ClCompile>
     <ClCompile Include="CWmaDecoder.cpp">
       <Filter>源文件\Decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="CSoundPlayer.cpp">
+      <Filter>源文件\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="CSoundDecoder.cpp">
+      <Filter>源文件\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="CSoundDevice.cpp">
+      <Filter>源文件\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="CCDecodeQueue.cpp">
+      <Filter>源文件\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="CCPlayerRender.cpp">
+      <Filter>源文件\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="CCPlayerDefine.cpp">
+      <Filter>源文件\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="CCVideoDevice.cpp">
+      <Filter>源文件\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="CCVideoPlayer.cpp">
+      <Filter>源文件\Video</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>源文件\Helpers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

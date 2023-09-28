@@ -3,26 +3,28 @@
 #ifdef MINI_PLAYER_LIB
 
 #include "CSoundPlayer.h"
+#include "CCVideoPlayer.h"
 #define MINI_PLAYER_EXPORT __declspec(dllexport)
 
 #else
 
 #include "CSoundPlayerExport.h"
+#include "CCVideoPlayerExport.h"
 #define MINI_PLAYER_EXPORT 
 
 #endif
 
 //
 // * 说明：
-//   创建播放器实例
+//   创建视频播放器实例
 //
 // * 参数：
-//   无
+//   param: 初始化参数
 // 
 // * 返回：
 //   播放器实例指针
 //
-extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreatePlayer();
+extern "C" MINI_PLAYER_EXPORT CCVideoPlayerAbstract* CreateVideoPlayer(CCVideoPlayerInitParams * param);
 
 //
 // * 说明：
@@ -34,7 +36,31 @@ extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreatePlayer();
 // * 返回：
 //   无
 //
-extern "C" MINI_PLAYER_EXPORT void DestroyPlayer(CSoundPlayer* player);
+extern "C" MINI_PLAYER_EXPORT void DestroyVideoPlayer(CCVideoPlayerAbstract * player);
+
+//
+// * 说明：
+//   创建音频播放器实例
+//
+// * 参数：
+//   无
+// 
+// * 返回：
+//   播放器实例指针
+//
+extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreateSoundPlayer();
+
+//
+// * 说明：
+//   销毁播放器实例
+//
+// * 参数：
+//   * player 播放器实例指针
+// 
+// * 返回：
+//   无
+//
+extern "C" MINI_PLAYER_EXPORT void DestroySoundPlayer(CSoundPlayer* player);
 
 //
 // * 说明：
@@ -62,12 +88,19 @@ extern "C" MINI_PLAYER_EXPORT TStreamFormat GetAudioFileFormat(const wchar_t* fi
 
 //读取视频信息
 struct READ_VIDEO_INFO {
+  //指定获取信息是否成功
   bool success;
+  //如果 success 为 false，则这个字段说明错误信息
   wchar_t lastError[256];
+  //当前视频的格式信息
   char format[100];
+  //当前视频的时长（秒）
   double duration;
+  //当前视频的宽度
   int width;
+  //当前视频的高度
   int height;
+  //当前视频的帧率
   double frameRate;
 };
 

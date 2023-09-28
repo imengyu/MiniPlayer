@@ -3,7 +3,10 @@
 #include "CSoundPlayer.h"
 #include "StringHelper.h"
 #include "DbgHelper.h"
+#include "Logger.h"
 #include <thread>
+
+#define LOG_TAG "CSoundDevice"
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
@@ -11,7 +14,7 @@ const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 const IID IID_IAudioStreamVolume = __uuidof(IAudioStreamVolume);
 
-CSoundDevice::CSoundDevice(CSoundPlayerImpl* parent)
+CSoundDevice::CSoundDevice(CSoundDeviceHoster* parent)
 {
   this->parent = parent;
   memset(currentVolume, 0, sizeof(currentVolume));
@@ -74,6 +77,55 @@ UINT32 CSoundDevice::GetPosition()
   WaitForSingleObject(hEventGetPadding, INFINITE);
   ResetEvent(hEventGetPadding);
   return numFramesPadding;
+}
+
+CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
+{
+  if (deviceDefaultFormatInfo.sampleRate == 0) {
+    IMMDeviceEnumerator* pEnumerator = NULL;
+    IMMDevice* pDevice = NULL;
+    IAudioClient* pAudioClient = NULL;
+    IAudioRenderClient* pRenderClient = NULL;
+    WAVEFORMATEX* pwfx = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
+    if (FAILED(hr)) {
+      LOGEF(LOG_TAG, "CoCreateInstance failed in line %d with HRESULT: 0x%08X", hr); 
+      goto EXIT;
+    }
+
+    hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
+    if (FAILED(hr)) {
+      LOGEF(LOG_TAG, "GetDefaultAudioEndpoint failed in line %d with HRESULT: 0x%08X", hr); 
+      goto EXIT;
+    }
+
+    hr = pAudioClient->GetMixFormat(&pwfx);
+    if (FAILED(hr)) {
+      LOGEF(LOG_TAG, "GetMixFormat failed in line %d with HRESULT: 0x%08X", hr);
+      goto EXIT;
+    }
+
+    deviceDefaultFormatInfo.sampleRate = pwfx->nSamplesPerSec;
+    deviceDefaultFormatInfo.channels = pwfx->nChannels;
+    switch (pwfx->wBitsPerSample)
+    {
+    case 8: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_U8; break;
+    case 16: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_S16; break;
+    case 32: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_S32; break;
+    }
+
+  EXIT:
+    if (pEnumerator)
+      pEnumerator->Release();
+    if (pDevice)
+      pDevice->Release();
+    if (pAudioClient)
+      pAudioClient->Release();
+    if (pRenderClient)
+      pRenderClient->Release();
+  }
+
+  return deviceDefaultFormatInfo;
 }
 
 bool CSoundDevice::Create()
@@ -176,26 +228,32 @@ void CSoundDevice::PlayerThread(void* p)
   hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
   EXIT_ON_ERROR(hr);
 
-  //hr = pAudioClient->GetMixFormat(&pwfx);
-  //EXIT_ON_ERROR(hr);
+  device->shouldReSample = device->parent->GetShouldReSample();
+  if (device->shouldReSample) {
 
-  //加载当前音频格式
-  pwfx = (WAVEFORMATEX*)CoTaskMemAlloc(sizeof(WAVEFORMATEX));
-  if (!pwfx)
-    goto EXIT;
+    //加载当前音频格式
+    pwfx = (WAVEFORMATEX*)CoTaskMemAlloc(sizeof(WAVEFORMATEX));
+    if (!pwfx)
+      goto EXIT;
 
-  pwfx->nSamplesPerSec = device->parent->GetSampleRate();
-  pwfx->nChannels = device->parent->GetChannelsCount();
-  pwfx->wFormatTag = WAVE_FORMAT_PCM;
-  pwfx->wBitsPerSample = device->parent->GetBitPerSample();
-  pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
-  pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
-  pwfx->cbSize = 0;
+    pwfx->nSamplesPerSec = device->parent->GetSampleRate();
+    pwfx->nChannels = device->parent->GetChannelsCount();
+    pwfx->wFormatTag = WAVE_FORMAT_PCM;
+    pwfx->wBitsPerSample = device->parent->GetBitPerSample();
+    pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
+    pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
+    pwfx->cbSize = 0;
+  }
+  else {
+    hr = pAudioClient->GetMixFormat(&pwfx);
+    EXIT_ON_ERROR(hr);
+  }
 
   //初始化
   hr = pAudioClient->Initialize(
     AUDCLNT_SHAREMODE_SHARED,
-    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+    AUDCLNT_STREAMFLAGS_EVENTCALLBACK | 
+      (device->shouldReSample ? (AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY) : 0),
     0,
     0,
     pwfx,
@@ -330,12 +388,14 @@ RESET:
   }
 
 EXIT:
-  if (pwfx)
+  if (device->shouldReSample && pwfx)
     CoTaskMemFree(pwfx);
 
   device->isStarted = false;
   device->createSuccess = false;
-  device->parent->NotifyPlayEnd(hasError);
+
+  if (device->parent)
+    device->parent->NotifyPlayEnd(hasError);
 
   if (pEnumerator)
     pEnumerator->Release();

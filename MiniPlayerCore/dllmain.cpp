@@ -1,5 +1,6 @@
 ﻿// dllmain.cpp : 定义 DLL 应用程序的入口点。
 #include "pch.h"
+#include "Logger.h"
 #include <mpg123.h>
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -23,6 +24,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     }
     //注册所有组件
     avformat_network_init();
+    Logger::InitConst();
     hInst = hModule;
     break;
   case DLL_THREAD_ATTACH:
@@ -30,6 +32,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     break;
   case DLL_PROCESS_DETACH:
     mpg123_exit();
+    Logger::DestroyConst();
     break;
   }
   return TRUE;

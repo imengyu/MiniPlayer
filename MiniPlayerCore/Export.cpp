@@ -4,6 +4,7 @@
 #include "COggDecoder.h"
 #include "CWavDecoder.h"
 #include "StringHelper.h"
+#include "CCVideoPlayer.h"
 extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
@@ -11,11 +12,20 @@ extern "C" {
 
 #pragma region Player creation
 
-CSoundPlayer* CreatePlayer()
+CSoundPlayer* CreateSoundPlayer()
 {
    return new CSoundPlayerImpl();
 }
-void DestroyPlayer(CSoundPlayer* player)
+void DestroySoundPlayer(CSoundPlayer* player)
+{
+	delete player;
+}
+
+CCVideoPlayerAbstract* CreateVideoPlayer(CCVideoPlayerInitParams* param)
+{
+	return new CCVideoPlayer(param);
+}
+void DestroyVideoPlayer(CCVideoPlayerAbstract* player)
 {
 	delete player;
 }

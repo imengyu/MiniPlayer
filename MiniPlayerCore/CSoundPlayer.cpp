@@ -188,9 +188,9 @@ void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
 	}
 }
 
-bool CSoundPlayerImpl::OnCopyData(CSoundPlayerImpl* instance, LPVOID buf, DWORD buf_len)
+bool CSoundPlayerImpl::OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len)
 {
-	auto read_size = instance->decoder->Read(buf, buf_len);
+	auto read_size = dynamic_cast<CSoundPlayerImpl*>(instance)->decoder->Read(buf, buf_len);
 	if (read_size < buf_len) {
 		memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
 		return false;
