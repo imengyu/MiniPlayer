@@ -164,6 +164,7 @@
     <ClInclude Include="CCDecodeQueue.h" />
     <ClInclude Include="CCPlayerDefine.h" />
     <ClInclude Include="CCPlayerRender.h" />
+    <ClInclude Include="CCVideoCallbackDevice.h" />
     <ClInclude Include="CCVideoDevice.h" />
     <ClInclude Include="CCVideoPlayer.h" />
     <ClInclude Include="CCVideoPlayerExport.h" />
@@ -190,6 +191,7 @@
     <ClCompile Include="CCDecodeQueue.cpp" />
     <ClCompile Include="CCPlayerDefine.cpp" />
     <ClCompile Include="CCPlayerRender.cpp" />
+    <ClCompile Include="CCVideoCallbackDevice.cpp" />
     <ClCompile Include="CCVideoDevice.cpp" />
     <ClCompile Include="CCVideoPlayer.cpp" />
     <ClCompile Include="CFLACDecoder.cpp" />

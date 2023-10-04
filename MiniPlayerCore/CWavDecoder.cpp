@@ -29,21 +29,21 @@ bool CWavDecoder::Open(const wchar_t* file)
 	if ((m_ckRiff.ckid != FOURCC_RIFF) ||
 		(m_ckRiff.fccType != mmioFOURCC('W', 'A', 'V', 'E'))) {
 
-		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+		SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 		return false;
 	}
 
 	// Search the input file for for the 'fmt ' chunk.  
 	ckIn.ckid = mmioFOURCC('f', 'm', 't', ' ');
 	if (0 != mmioDescend(hStream, &ckIn, &m_ckRiff, MMIO_FINDCHUNK)) {
-		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+		SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 		return false;
 	}
 
 	// Expect the 'fmt' chunk to be at least as large as <PCMWAVEFORMAT>;  
 	// if there are extra parameters at the end, we'll ignore them  
 	if (ckIn.cksize < (LONG)sizeof(PCMWAVEFORMAT)) {
-		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+		SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 		return false;
 	}
 
@@ -51,7 +51,7 @@ bool CWavDecoder::Open(const wchar_t* file)
 	if (mmioRead(hStream, (HPSTR)&pcmWaveFormat,
 		sizeof(pcmWaveFormat)) != sizeof(pcmWaveFormat)) {
 
-		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+		SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 		return false;
 	}
 
@@ -77,7 +77,7 @@ bool CWavDecoder::Open(const wchar_t* file)
 		// Now, read those extra bytes into the structure, if cbExtraAlloc != 0.  
 		if (mmioRead(hStream, (CHAR*)(((BYTE*)&(m_pwfx.cbSize)) + sizeof(WORD)),
 			cbExtraBytes) != cbExtraBytes) {
-			SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+			SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 			return false;
 		}
 	}
@@ -88,7 +88,7 @@ bool CWavDecoder::Open(const wchar_t* file)
 
 	ckIn.ckid = mmioFOURCC('d', 'a', 't', 'a');
 	if (0 != mmioDescend(hStream, &ckIn, &m_ckRiff, MMIO_FINDCHUNK)) {
-		SetLastError(DECODER_ERROR_OPEN_FILE_FAILED, L"Bad format.");
+		SetLastError(DECODER_ERROR_BAD_FORMAT, L"Bad format.");
 		return false;
 	}
 

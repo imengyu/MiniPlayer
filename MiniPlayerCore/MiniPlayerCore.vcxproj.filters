@@ -111,6 +111,9 @@
     <ClInclude Include="CCVideoPlayerExport.h">
       <Filter>头文件\Video</Filter>
     </ClInclude>
+    <ClInclude Include="CCVideoCallbackDevice.h">
+      <Filter>头文件\Video</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -172,6 +175,9 @@
     </ClCompile>
     <ClCompile Include="Logger.cpp">
       <Filter>源文件\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="CCVideoCallbackDevice.cpp">
+      <Filter>源文件\Video</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

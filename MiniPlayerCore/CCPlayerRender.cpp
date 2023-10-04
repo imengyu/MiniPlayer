@@ -7,6 +7,7 @@
 #include "CCVideoPlayer.h"
 #include "CSoundDevice.h"
 #include "CCVideoDevice.h"
+#include "CCVideoCallbackDevice.h"
 #include "Logger.h"
 
 bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
@@ -70,14 +71,17 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   destNbSample = (int)av_rescale_rnd(
     ACC_NB_SAMPLES,
     audioDeviceDefaultFormatInfo.sampleRate,
-    externalData->AudioCodecContext->sample_rate, AV_ROUND_UP);
+    externalData->AudioCodecContext->sample_rate, 
+    AV_ROUND_UP
+  );
   // 重采样后一帧数据的大小
   destDataSize = (size_t)av_samples_get_buffer_size(
     nullptr,
     audioDeviceDefaultFormatInfo.channels,
     destNbSample,
     audioDeviceDefaultFormatInfo.fmt, 
-    1);
+    1
+  );
 
   audioOutBuffer[0] = (uint8_t*)malloc(destDataSize);
   audioDevice->SetOnCopyDataCallback(RenderAudioBufferDataStub);
@@ -123,7 +127,7 @@ void CCPlayerRender::Stop() {
     }
 
     audioDevice->Stop();
-    videoDevice->Pause(true);
+    videoDevice->Pause();
   }
 }
 void CCPlayerRender::Start(bool isStartBySeek) {
@@ -132,16 +136,12 @@ void CCPlayerRender::Start(bool isStartBySeek) {
 
   if (!isStartBySeek)
     audioDevice->Start();
-  videoDevice->Pause(false);
+  videoDevice->Reusme();
 
   if (!renderVideoThread) {
     renderVideoThread = new std::thread(RenderVideoThreadStub, this);
     renderVideoThread->detach();
   }
-  /*if (!renderAudioThread) {
-    renderAudioThread = new std::thread(RenderAudioThreadStub, this);
-    renderAudioThread->detach();
-  }*/
 }
 void CCPlayerRender::Reset() {
   audioDevice->Reset();
@@ -163,6 +163,8 @@ void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
 }
 
 CCVideoDevice* CCPlayerRender::CreateVideoDevice(CCVideoPlayerExternalData* data) {
+  if (data->InitParams->UseRenderCallback)
+    return new CCVideoCallbackDevice(data);
   return new CCVideoDevice();
 }
 CSoundDevice* CCPlayerRender::CreateAudioDevice(CCVideoPlayerExternalData* data) {
@@ -254,11 +256,25 @@ void* CCPlayerRender::RenderVideoThread() {
       memset(outFrameBuffer, 0, outFrameBufferSize);
 
       //更具指定的数据初始化/填充缓冲区
-      av_image_fill_arrays(outFrame->data, outFrame->linesize, outFrameBuffer, outFrameDestFormat,
-        outFrameDestWidth, outFrameDestHeight, 1);
+      av_image_fill_arrays(
+        outFrame->data, 
+        outFrame->linesize, 
+        outFrameBuffer, 
+        outFrameDestFormat,
+        outFrameDestWidth, 
+        outFrameDestHeight, 
+        1
+      );
       //转码
-      sws_scale(swsContext, (const uint8_t* const*)frame->data, frame->linesize, 0,
-        frame->height, outFrame->data, outFrame->linesize);
+      sws_scale(
+        swsContext, 
+        (const uint8_t* const*)frame->data, 
+        frame->linesize, 
+        0,
+        frame->height,
+        outFrame->data, 
+        outFrame->linesize
+      );
 
       uint8_t* src = outFrame->data[0];
       int srcStride = outFrame->linesize[0];

@@ -20,6 +20,7 @@
 #define PLAYER_EVENT_PLAY_DONE 3
 #define PLAYER_EVENT_OPEN_FAIED 4
 #define PLAYER_EVENT_INIT_DECODER_DONE 5
+#define PLAYER_EVENT_RENDER_DATA_CALLBACK 6
 
 //解码器状态值
 //***************************************
@@ -80,9 +81,13 @@ public:
   */
   size_t FramePoolGrowStep = 10;
   /*
-  * 是否使用MediaCodec
-  */
+   * 是否使用MediaCodec
+   */
   bool UseMediaCodec = true;
+  /*
+   * 是否使用渲染数据回调
+   */
+  bool UseRenderCallback = true;
   /**
    * 限制FPS
    */
@@ -94,7 +99,29 @@ public:
 
 class CCVideoPlayerAbstract;
 //播放器事件回调
-typedef void (*CCVideoPlayerEventCallback)(CCVideoPlayerAbstract* player, int message, void* customData);
+typedef void (*CCVideoPlayerEventCallback)(CCVideoPlayerAbstract* player, int message, void* eventData, void* customData);
+
+//PLAYER_EVENT_RENDER_DATA_CALLBACK 事件
+//***************************************
+
+#define PLAYER_EVENT_RDC_TYPE_LOCK 0
+#define PLAYER_EVENT_RDC_TYPE_UNLOCK 1
+#define PLAYER_EVENT_RDC_TYPE_PAUSE 2
+#define PLAYER_EVENT_RDC_TYPE_REUSEME 3
+#define PLAYER_EVENT_RDC_TYPE_RESET 4
+#define PLAYER_EVENT_RDC_TYPE_DIRTY 5
+#define PLAYER_EVENT_RDC_TYPE_DESTROY 6
+
+//PLAYER_EVENT_RENDER_DATA_CALLBACK
+class CCVideoPlayerCallbackDeviceData {
+public:
+  int type;
+  uint8_t* src;
+  int srcStride;
+  uint8_t* dest;
+  int destStride;
+  int64_t pts;
+};
 
 //播放器实例
 //***************************************
@@ -113,6 +140,7 @@ public:
   //**********************
 
   virtual bool OpenVideo(const char* filePath) { return false; }
+  virtual bool OpenVideo(const wchar_t* filePath) { return false; }
   virtual bool CloseVideo() { return false; }
 
   virtual void SetVideoState(CCVideoState newState) {}

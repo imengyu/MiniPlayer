@@ -69,7 +69,7 @@ private:
 	std::string logFilePath;
 	std::string logTag;
 	FILE* logFile = nullptr;
-	LogLevel level = LogLevelInfo;
+	LogLevel level = LogLevelText;
 	LogOutPut outPut = LogOutPutConsolne;
 	LogCallBack callBack = nullptr;
 	void* callBackData;

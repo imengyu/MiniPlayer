@@ -21,18 +21,9 @@ public:
     virtual void Unlock() {}
     virtual void Dirty() {}
 
-    virtual void SetRect(int x, int y, int w, int h) {}
-    virtual void Pause(int pause) {}
+    virtual void Pause() {}
+    virtual void Reusme() {}
     virtual void Reset() {}
-
-    virtual void UpdateVideoMode(int w, int h) {
-        vw = w;
-        vh = h;
-    }
-    virtual void PostSurface(AVFrame*frame, RECT*rect) {}
-
-protected:
-    int vh = 0,vw = 0;
 };
 
 

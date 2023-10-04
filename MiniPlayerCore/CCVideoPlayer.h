@@ -34,6 +34,7 @@ public:
     //**********************
 
     bool OpenVideo(const char* filePath);
+    bool OpenVideo(const wchar_t* filePath);
     bool CloseVideo();
 
     void SetVideoState(CCVideoState newState);
@@ -62,6 +63,9 @@ public:
     void SetLastError(int code, const char* errmsg);
     const wchar_t* GetLastErrorMessage();
     int GetLastError() const;
+
+    void CallPlayerEventCallback(int message, void* data);
+    void CallPlayerEventCallback(int message);
 protected:
 
     int lastErrorCode = 0;
@@ -70,8 +74,6 @@ protected:
 
     CCVideoPlayerEventCallback videoPlayerEventCallback = nullptr;
     void*videoPlayerEventCallbackData = nullptr;
-
-    void CallPlayerEventCallback(int message);
 
     //解码器相关
     //**********************

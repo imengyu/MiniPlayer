@@ -9,8 +9,11 @@
 #include "Logger.h"
 
 void CCVideoPlayer::CallPlayerEventCallback(int message) {
+  CallPlayerEventCallback(message, nullptr);
+}
+void CCVideoPlayer::CallPlayerEventCallback(int message, void* data) {
   if (videoPlayerEventCallback != nullptr)
-    videoPlayerEventCallback(this, message, videoPlayerEventCallbackData);
+    videoPlayerEventCallback(this, message, data, videoPlayerEventCallbackData);
 }
 int CCVideoPlayer::GetLastError() const { return lastErrorCode; }
 
@@ -135,6 +138,9 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     return true;
   }
   return true;
+}
+bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
+  return OpenVideo(StringHelper::UnicodeToAnsi(filePath).c_str());
 }
 bool CCVideoPlayer::CloseVideo() {
 
@@ -752,7 +758,7 @@ void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
 
   //av_log
 
-  av_log_set_level(AV_LOG_DEBUG);
+  av_log_set_level(AV_LOG_WARNING);
   av_log_set_callback(FFmpegLogFunc);
 }
 void CCVideoPlayer::Destroy() {
@@ -779,26 +785,8 @@ void CCVideoPlayer::GlobalInit() {
 
 void CCVideoPlayer::FFmpegLogFunc(void* ptr, int level, const char* fmt, va_list vl) {
   UNREFERENCED_PARAMETER(ptr);
-
-  std::string str = StringHelper::FormatString(fmt, vl);
-  switch (level) {
-  case AV_LOG_DEBUG:
-    LOGDF("FFmpeg %s", str.c_str());
-    break;
-  case AV_LOG_INFO:
-    LOGIF("FFmpeg %s", str.c_str());
-    break;
-  case AV_LOG_WARNING:
-    LOGWF("FFmpeg %s", str.c_str());
-    break;
-  case AV_LOG_ERROR:
-    LOGEF("FFmpeg %s", str.c_str());
-    break;
-  default:
-    LOGDF("FFmpeg %s", str.c_str());
-    break;
-  }
-
+  if (level <= AV_LOG_WARNING)
+    vprintf_s(fmt, vl);
 }
 
 void CCVideoPlayer::SetLastError(int code, const wchar_t* errmsg)

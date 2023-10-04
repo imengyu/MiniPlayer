@@ -66,7 +66,7 @@ std::wstring StringHelper::FormatString(const wchar_t* format, va_list marker)
 #else
 	size_t num_of_chars = vswprintf(nullptr, 0, format, marker);
 #endif
-	if (num_of_chars > tmp.capacity()) {
+	if (tmp.capacity() < num_of_chars + 1) {
 		tmp.resize(num_of_chars + 1);
 	}
 #if defined(_MSC_VER) && _MSC_VER > 1600
@@ -84,7 +84,7 @@ std::string StringHelper::FormatString(const char* format, va_list marker)
 #else
 	size_t num_of_chars = vsprintf(nullptr, format, marker);
 #endif
-	if (num_of_chars > tmp.capacity()) {
+	if (tmp.capacity() < num_of_chars + 1) {
 		tmp.resize(num_of_chars + 1);
 	}
 
@@ -106,7 +106,7 @@ std::wstring StringHelper::FormatString(const wchar_t* format, ...)
 	size_t num_of_chars = vswprintf(nullptr, 0, format, marker);
 #endif
 
-	if (num_of_chars > tmp.capacity()) {
+	if (tmp.capacity() < num_of_chars + 1) {
 		tmp.resize(num_of_chars + 1);
 	}
 #if defined(_MSC_VER) && _MSC_VER > 1600
@@ -129,7 +129,7 @@ std::string StringHelper::FormatString(const char* format, ...)
 #else
 	size_t num_of_chars = vsprintf(nullptr, format, marker);
 #endif
-	if (num_of_chars > tmp.capacity()) {
+	if (tmp.capacity() < num_of_chars + 1) {
 		tmp.resize(num_of_chars + 1);
 	}
 
