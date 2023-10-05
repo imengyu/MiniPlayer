@@ -13,10 +13,10 @@ public:
   virtual void NotifyPlayEnd(bool hasError) {}
   virtual void SetLastError(int code, const wchar_t*message) {}
 
-  bool GetShouldReSample() { return false; }
-  unsigned long GetSampleRate() { return 0; }
-  int GetBitPerSample() { return 0; }
-  int GetChannelsCount() { return 0; }
+  virtual bool GetShouldReSample() { return false; }
+  virtual unsigned long GetSampleRate() { return 0; }
+  virtual int GetBitPerSample() { return 0; }
+  virtual int GetChannelsCount() { return 0; }
 };
 
 typedef bool(*OnCopyDataCallback)(CSoundDeviceHoster* instance, LPVOID buf, DWORD  buf_len);

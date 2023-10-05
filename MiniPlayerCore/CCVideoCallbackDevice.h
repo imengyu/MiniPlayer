@@ -8,9 +8,7 @@ public:
   CCVideoCallbackDevice(CCVideoPlayerExternalData* data);
 
   void Destroy();
-  uint8_t* Lock(uint8_t* src, int srcStride, int* destStride, int64_t pts);
-  void Unlock();
-  void Dirty();
+  void Render(AVFrame* frame, int64_t pts);
 
   void Pause();
   void Reusme();

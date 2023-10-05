@@ -59,11 +59,9 @@ public:
   size_t PacketPoolGrowStep = 10;
 
   /**
-   * 目标格式
-   * 
-   * AVPixelFormat 默认 AV_PIX_FMT_RGBA
+   * 目标格式 (AVPixelFormat)
    */
-  int DestFormat = 26;
+  int DestFormat = 25;
   /**
    * 目标宽度
    */
@@ -80,10 +78,6 @@ public:
   * 解码器帧缓冲池增长步长
   */
   size_t FramePoolGrowStep = 10;
-  /*
-   * 是否使用MediaCodec
-   */
-  bool UseMediaCodec = true;
   /*
    * 是否使用渲染数据回调
    */
@@ -104,22 +98,18 @@ typedef void (*CCVideoPlayerEventCallback)(CCVideoPlayerAbstract* player, int me
 //PLAYER_EVENT_RENDER_DATA_CALLBACK 事件
 //***************************************
 
-#define PLAYER_EVENT_RDC_TYPE_LOCK 0
-#define PLAYER_EVENT_RDC_TYPE_UNLOCK 1
-#define PLAYER_EVENT_RDC_TYPE_PAUSE 2
-#define PLAYER_EVENT_RDC_TYPE_REUSEME 3
-#define PLAYER_EVENT_RDC_TYPE_RESET 4
-#define PLAYER_EVENT_RDC_TYPE_DIRTY 5
-#define PLAYER_EVENT_RDC_TYPE_DESTROY 6
+#define PLAYER_EVENT_RDC_TYPE_RENDER 0
+#define PLAYER_EVENT_RDC_TYPE_PAUSE 1
+#define PLAYER_EVENT_RDC_TYPE_REUSEME 2
+#define PLAYER_EVENT_RDC_TYPE_RESET 3
+#define PLAYER_EVENT_RDC_TYPE_DESTROY 4
 
 //PLAYER_EVENT_RENDER_DATA_CALLBACK
 class CCVideoPlayerCallbackDeviceData {
 public:
   int type;
-  uint8_t* src;
-  int srcStride;
-  uint8_t* dest;
-  int destStride;
+  uint8_t** data;
+  int* linesize;
   int64_t pts;
 };
 

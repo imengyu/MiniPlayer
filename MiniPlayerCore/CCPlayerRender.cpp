@@ -46,18 +46,14 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   if (audioDeviceDefaultFormatInfo.fmt == 0)
     audioDeviceDefaultFormatInfo.fmt = externalData->AudioCodecContext->sample_fmt;
 
-  int distChannels = 0;
-  switch (audioDeviceDefaultFormatInfo.channels)
-  {
-  case 1: distChannels = AV_CH_LAYOUT_MONO; break;
-  case 2: distChannels = AV_CH_LAYOUT_STEREO; break;
-  case 0:
-  default: break;
-  }
+  AVChannelLayout dst_ch_layout;
+  dst_ch_layout.nb_channels = audioDeviceDefaultFormatInfo.channels;
+  dst_ch_layout.order = AV_CHANNEL_ORDER_NATIVE;
+  dst_ch_layout.u.mask = AV_CH_LAYOUT_STEREO;
 
   // 配置输入/输出通道类型
   av_opt_set_chlayout(swrContext, "in_channel_layout", &externalData->AudioCodecContext->ch_layout, 0);
-  av_opt_set_int(swrContext, "out_channel_layout", distChannels, 0);
+  av_opt_set_chlayout(swrContext, "out_channel_layout", &dst_ch_layout, 0);
   // 配置输入/输出采样率
   av_opt_set_int(swrContext, "in_sample_rate", externalData->AudioCodecContext->sample_rate, 0);
   av_opt_set_int(swrContext, "out_sample_rate", audioDeviceDefaultFormatInfo.sampleRate, 0);
@@ -276,19 +272,7 @@ void* CCPlayerRender::RenderVideoThread() {
         outFrame->linesize
       );
 
-      uint8_t* src = outFrame->data[0];
-      int srcStride = outFrame->linesize[0];
-      int destStride = 0;
-      uint8_t* target = videoDevice->Lock(src, srcStride, &destStride, curVideoPts);
-      if (target && src) {
-        for (int i = 0, c = externalData->VideoCodecContext->height; i < c; i++)
-          memcpy(target + i * destStride, src + i * srcStride, srcStride);
-        videoDevice->Dirty();
-      }
-      else if (!src) {
-        LOGWF("Frame %ld scale failed", frame->pts);
-      }
-      videoDevice->Unlock();
+      videoDevice->Render(outFrame, curVideoPts);
 
       av_frame_unref(outFrame);
     }

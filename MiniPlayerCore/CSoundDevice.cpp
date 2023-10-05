@@ -95,13 +95,19 @@ CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInf
 
     hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "GetDefaultAudioEndpoint failed in line %d with HRESULT: 0x%08X", hr); 
+      LOGEF(LOG_TAG, "pEnumerator->GetDefaultAudioEndpoint failed in line %d with HRESULT: 0x%08X", hr); 
+      goto EXIT;
+    }
+
+    hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
+    if (FAILED(hr)) {
+      LOGEF(LOG_TAG, "pDevice->Activate failed in line %d with HRESULT: 0x%08X", hr);
       goto EXIT;
     }
 
     hr = pAudioClient->GetMixFormat(&pwfx);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "GetMixFormat failed in line %d with HRESULT: 0x%08X", hr);
+      LOGEF(LOG_TAG, "pAudioClient->GetMixFormat failed in line %d with HRESULT: 0x%08X", hr);
       goto EXIT;
     }
 

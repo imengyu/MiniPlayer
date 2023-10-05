@@ -10,37 +10,23 @@ void CCVideoCallbackDevice::Destroy()
 {
   CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_DESTROY);
 }
-uint8_t* CCVideoCallbackDevice::Lock(uint8_t* src, int srcStride, int* destStride, int64_t pts)
+void CCVideoCallbackDevice::Render(AVFrame* frame, int64_t pts)
 {
   CCVideoPlayerCallbackDeviceData data;
-  data.type = PLAYER_EVENT_RDC_TYPE_LOCK;
-  data.src = src;
-  data.srcStride = srcStride;
-  data.destStride = 0;
-  data.dest = nullptr;
+  data.type = PLAYER_EVENT_RDC_TYPE_RENDER;
+  data.data = frame->data;
+  data.linesize = frame->linesize;
   data.pts = pts; 
   this->data->Player->CallPlayerEventCallback(PLAYER_EVENT_RENDER_DATA_CALLBACK, &data);
-  if (data.destStride)
-    *destStride = data.destStride;
-  return  data.dest;
-}
-
-void CCVideoCallbackDevice::Unlock()
-{
-  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_UNLOCK);
-}
-void CCVideoCallbackDevice::Dirty()
-{
-  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_DIRTY);
 }
 
 void CCVideoCallbackDevice::Pause()
 {
-  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_UNLOCK);
+  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_PAUSE);
 }
 void CCVideoCallbackDevice::Reusme()
 {
-  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_PAUSE);
+  CallSimpleMessage(PLAYER_EVENT_RDC_TYPE_REUSEME);
 }
 void CCVideoCallbackDevice::Reset()
 {

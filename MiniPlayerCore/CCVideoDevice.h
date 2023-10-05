@@ -17,9 +17,7 @@ public:
     virtual ~CCVideoDevice() {}
 
     virtual void Destroy() {}
-    virtual uint8_t* Lock(uint8_t *src, int srcStride, int*destStride, int64_t pts) { return nullptr; }
-    virtual void Unlock() {}
-    virtual void Dirty() {}
+    virtual void Render(AVFrame *frame, int64_t pts) {}
 
     virtual void Pause() {}
     virtual void Reusme() {}

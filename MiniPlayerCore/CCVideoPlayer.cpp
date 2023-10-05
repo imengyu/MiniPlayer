@@ -140,7 +140,7 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
   return true;
 }
 bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
-  return OpenVideo(StringHelper::UnicodeToAnsi(filePath).c_str());
+  return OpenVideo(StringHelper::UnicodeToUtf8(filePath).c_str());
 }
 bool CCVideoPlayer::CloseVideo() {
 
@@ -255,7 +255,7 @@ bool CCVideoPlayer::InitDecoder() {
   decodeState = CCDecodeState::Preparing;
 
   formatContext = avformat_alloc_context();
-  //打开视频数据源。由于Android 对SDK存储权限的原因，如果没有为当前项目赋予SDK存储权限，打开本地视频文件时会失败
+  //打开视频数据源
   int openState = avformat_open_input(&formatContext, currentFile.c_str(), nullptr, nullptr);
   if (openState < 0) {
     char errBuf[128];
@@ -323,13 +323,6 @@ bool CCVideoPlayer::InitDecoder() {
     LOGE("Not find video decoder");
     SetLastError(VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT, "Not find video decoder");
     return false;
-  }
-
-  if (InitParams.UseMediaCodec && (strcmp(videoCodec->name, "h264") == 0 || strcmp(videoCodec->name, "hevc") == 0 || strcmp(videoCodec->name, "mpeg4") == 0
-    || strcmp(videoCodec->name, "vp8") == 0 || strcmp(videoCodec->name, "vp9") == 0)) {
-    auto newName = StringHelper::FormatString("%s_mediacodec", videoCodec->name);
-    LOGDF("Replace video decoder %s to : %s", videoCodec->name, newName.c_str());
-    videoCodec = avcodec_find_decoder_by_name(newName.c_str());
   }
 
   //通过解码器分配(并用  默认值   初始化)一个解码器context

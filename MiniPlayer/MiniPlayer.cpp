@@ -7,6 +7,7 @@
 #include <Shlobj.h>  
 #include <conio.h>  
 #include <locale>
+#include <mutex>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #pragma comment(lib,"Shell32.lib")  
@@ -71,10 +72,13 @@ public:
 void DoPlayVideo(wchar_t* strFilename) {
 	PlayVideoData playData;
 	CCVideoPlayerInitParams params;
-	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
 
+	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = 900;
 	params.DestHeight = 600;
+
+	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
+
 
 	//播放器回调
 	player->SetPlayerEventCallback([] (CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
@@ -108,8 +112,16 @@ void DoPlayVideo(wchar_t* strFilename) {
 			auto rdcData = (CCVideoPlayerCallbackDeviceData*)eventData;
 			switch (rdcData->type)
 			{
-			case PLAYER_EVENT_RDC_TYPE_LOCK:
-				SDL_UpdateTexture(playData->texture, nullptr, rdcData->src, rdcData->srcStride);
+			case PLAYER_EVENT_RDC_TYPE_RENDER:
+				SDL_LOCK
+				SDL_UpdateYUVTexture (
+					playData->texture, 
+					NULL, 
+					rdcData->data[0], rdcData->linesize[0],
+					rdcData->data[1], rdcData->linesize[1],
+					rdcData->data[2], rdcData->linesize[2]
+				);
+				playData->updateTextureLock.unlock();
 				break;
 			}
 			break;
@@ -154,7 +166,7 @@ void DoPlayVideo(wchar_t* strFilename) {
 	//创建一个文理
 	playData.texture = SDL_CreateTexture(
 		playData.render,
-		SDL_PIXELFORMAT_ABGR8888,
+		SDL_PIXELFORMAT_IYUV,
 		SDL_TEXTUREACCESS_TARGET,
 		params.DestWidth,
 		params.DestHeight
@@ -171,7 +183,7 @@ void DoPlayVideo(wchar_t* strFilename) {
 		default:
 			break;
 		}
-		
+
 		playData.rect.x = 0;
 		playData.rect.y = 0;
 		playData.rect.w = params.DestWidth;
