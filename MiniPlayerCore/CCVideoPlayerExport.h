@@ -82,6 +82,10 @@ public:
    * 是否使用渲染数据回调
    */
   bool UseRenderCallback = true;
+  /*
+  * 同步运行
+  */
+  bool SyncRender = true;
   /**
    * 限制FPS
    */
@@ -148,6 +152,11 @@ public:
 
   virtual void SetPlayerEventCallback(CCVideoPlayerEventCallback callback, void* data) {}
   virtual CCVideoPlayerEventCallback GetPlayerEventCallback() { return nullptr; }
+
+  //同步渲染
+  //**********************
+
+  virtual void SyncRender() {}
 
   //错误处理
   //**********************

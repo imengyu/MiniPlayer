@@ -69,16 +69,17 @@ public:
 	bool openSuccess = false;
 };
 
-void DoPlayVideo(wchar_t* strFilename) {
+void DoPlayVideo(wchar_t* strFilename, int width, int height) {
 	PlayVideoData playData;
 	CCVideoPlayerInitParams params;
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
-	params.DestWidth = 900;
-	params.DestHeight = 600;
+	params.DestWidth = width;
+	params.DestHeight = height;
+	params.UseRenderCallback = true;
+	params.SyncRender = true;
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
-
 
 	//播放器回调
 	player->SetPlayerEventCallback([] (CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
@@ -113,7 +114,6 @@ void DoPlayVideo(wchar_t* strFilename) {
 			switch (rdcData->type)
 			{
 			case PLAYER_EVENT_RDC_TYPE_RENDER:
-				SDL_LOCK
 				SDL_UpdateYUVTexture (
 					playData->texture, 
 					NULL, 
@@ -121,7 +121,6 @@ void DoPlayVideo(wchar_t* strFilename) {
 					rdcData->data[1], rdcData->linesize[1],
 					rdcData->data[2], rdcData->linesize[2]
 				);
-				playData->updateTextureLock.unlock();
 				break;
 			}
 			break;
@@ -184,6 +183,8 @@ void DoPlayVideo(wchar_t* strFilename) {
 			break;
 		}
 
+		player->SyncRender();
+
 		playData.rect.x = 0;
 		playData.rect.y = 0;
 		playData.rect.w = params.DestWidth;
@@ -191,6 +192,10 @@ void DoPlayVideo(wchar_t* strFilename) {
 		SDL_RenderClear(playData.render);
 		SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
 		SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
+
+		if (player->GetVideoState() == CCVideoState::Ended)
+			playData.quit = true;
+
 	} while (!playData.quit);
 
 
@@ -224,7 +229,7 @@ void DoReadVideo(wchar_t* strFilename) {
 		wprintf(L"GetVideoInfo Failed %s\n", info->lastError);
 	}
 
-	DoPlayVideo(strFilename);
+	DoPlayVideo(strFilename, info->width, info->height);
 	ReleaseVideoInfo(info);
 }
 
@@ -248,8 +253,9 @@ int endWith(const wchar_t* str1, const wchar_t* str2) {
 int main()
 {
 	setlocale(LC_ALL, "chs");
-	OPENFILENAME ofn = {0};
 	wchar_t strFilename[MAX_PATH] = { 0 };
+	wcscpy_s(strFilename, L"D:\\2.mp4");
+	/*OPENFILENAME ofn = {0};
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();
 	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤  
@@ -264,7 +270,7 @@ int main()
 		wprintf(L"请选择一个文件\n");
 		system("PAUSE");
 		return 0;
-	}
+	}*/
 
 	if (
 		endWith(strFilename, L".mp3") == 1 ||

@@ -66,6 +66,8 @@ public:
 
     void CallPlayerEventCallback(int message, void* data);
     void CallPlayerEventCallback(int message);
+
+    void SyncRender();
 protected:
 
     int lastErrorCode = 0;

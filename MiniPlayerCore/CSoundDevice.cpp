@@ -81,6 +81,8 @@ UINT32 CSoundDevice::GetPosition()
 
 CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
 {
+  CoInitializeEx(0, 0);
+
   if (deviceDefaultFormatInfo.sampleRate == 0) {
     IMMDeviceEnumerator* pEnumerator = NULL;
     IMMDevice* pDevice = NULL;
@@ -113,7 +115,7 @@ CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInf
 
     deviceDefaultFormatInfo.sampleRate = pwfx->nSamplesPerSec;
     deviceDefaultFormatInfo.channels = pwfx->nChannels;
-    switch (pwfx->wBitsPerSample)
+    switch (pwfx->nBlockAlign)
     {
     case 8: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_U8; break;
     case 16: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_S16; break;

@@ -504,7 +504,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
     if (playerSeeking != 2 && decoderVideoFinish && decoderAudioFinish &&
       (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished)) {
       int64_t pos = GetVideoPos();
-      if (pos >= GetVideoLength() - 10 || pos == -1) {
+      if (pos >= GetVideoLength() - 1000 || pos == -1) {
 
         decodeQueue.ClearAll();//清空数据
         StopAll();
@@ -723,6 +723,13 @@ void* CCVideoPlayer::DecoderAudioThread() {
 QUIT:
   LOGIF("DecoderAudioThread : End [%s]", CCDecodeStateToString(decodeState));
   return nullptr;
+}
+
+//同步渲染
+
+void CCVideoPlayer::SyncRender()
+{
+  return render->SyncRender();
 }
 
 CCVideoPlayer::CCVideoPlayer() {

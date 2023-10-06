@@ -67,13 +67,13 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "快乐的梦鱼"
-            VALUE "FileDescription", "音频播放器核心库"
+            VALUE "CompanyName", "Baidu.com Inc."
+            VALUE "FileDescription", "YunDetectService"
             VALUE "FileVersion", "1.0.0.1"
             VALUE "InternalName", "MiniPlay.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2023 快乐的梦鱼 imengyu.top"
+            VALUE "LegalCopyright", "Copyright (C) 2023 Baidu.com"
             VALUE "OriginalFilename", "MiniPlay.dll"
-            VALUE "ProductName", "音频播放器"
+            VALUE "ProductName", "YunDetectService"
             VALUE "ProductVersion", "1.0.0.1"
         END
     END

@@ -43,6 +43,8 @@ public:
     return false;
   }
 
+  virtual void SyncRender();
+
   bool GetShouldReSample() { return false; }
   void SetLastError(int code, const wchar_t* errmsg);
 
@@ -50,6 +52,8 @@ private:
 
   CCVideoDevice* CreateVideoDevice(CCVideoPlayerExternalData* data);
   CSoundDevice* CreateAudioDevice(CCVideoPlayerExternalData* data);
+
+  CCVideoPlayerCallbackDeviceData renderDeviceData;
 
   SwrContext* swrContext = NULL;
   SwsContext* swsContext = nullptr;
@@ -60,12 +64,9 @@ private:
   int64_t curAudioPts = 0;	//记录当前播放的音频流Packet的DTS
 
   // 输出缓冲
-  uint8_t* audioOutBuffer[1] = { nullptr };
-  // 重采样后，每个通道包含的采样数
-  // acc默认为1024，重采样后可能会变化
-  int destNbSample = 1024;
-  // 重采样以后，一帧数据的大小
+  uint8_t* audioOutBuffer = nullptr;
   size_t destDataSize = 0;
+  int destChannels = 0;
 
   //时钟
   double currentAudioClock = 0;
@@ -95,9 +96,11 @@ private:
 
   static void* RenderVideoThreadStub(void* param);
   void* RenderVideoThread();
+  bool RenderVideoThreadWorker();
 
   static bool RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len);
-  bool RenderAudioBufferData(uint8_t** buf, DWORD* len);
+  bool RenderAudioBufferData(LPVOID buf, DWORD buf_len);
+
 };
 
 
