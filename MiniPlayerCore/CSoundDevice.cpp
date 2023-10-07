@@ -358,9 +358,7 @@ RESET:
         hasMoreData = device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
 
         hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
-        EXIT_ON_ERROR(hr)
-
-          LOGDF("D: Buffer: %d", requestFrameCount);
+        EXIT_ON_ERROR(hr);
       }
       else {
         hr = pRenderClient->GetBuffer(numFramesAvailable, &pData);
@@ -371,8 +369,6 @@ RESET:
 
         hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
         EXIT_ON_ERROR(hr)
-
-          LOGD("D: Empty data");
       }
 
       if (!hasMoreData) {
@@ -433,17 +429,19 @@ EXIT:
   device->isStarted = false;
   device->createSuccess = false;
 
-  if (device->parent)
-    device->parent->NotifyPlayEnd(hasError);
-
   if (pEnumerator)
     pEnumerator->Release();
   if (pDevice)
     pDevice->Release();
   if (pAudioClient)
     pAudioClient->Release();
+  if (pAudioStreamVolume)
+    pAudioStreamVolume->Release();
   if (pRenderClient)
     pRenderClient->Release();
 
   CoUninitialize();
+
+  if (device->parent)
+    device->parent->NotifyPlayEnd(hasError);
 }

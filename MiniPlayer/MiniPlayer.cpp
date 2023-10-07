@@ -255,7 +255,7 @@ int main()
 	setlocale(LC_ALL, "chs");
 	wchar_t strFilename[MAX_PATH] = { 0 };
 	wcscpy_s(strFilename, L"D:\\2.mp4");
-	/*OPENFILENAME ofn = {0};
+	OPENFILENAME ofn = {0};
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();
 	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤  
@@ -270,7 +270,7 @@ int main()
 		wprintf(L"请选择一个文件\n");
 		system("PAUSE");
 		return 0;
-	}*/
+	}
 
 	if (
 		endWith(strFilename, L".mp3") == 1 ||
