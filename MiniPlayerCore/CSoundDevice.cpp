@@ -51,6 +51,10 @@ void CSoundDevice::SetOnCopyDataCallback(OnCopyDataCallback callback)
 {
   copyDataCallback = callback;
 }
+void CSoundDevice::SetOnRequestDataSizeCallback(OnRequestDataSizeCallback callback)
+{
+  requestDataSizeCallback = callback;
+}
 
 float CSoundDevice::GetVolume(int index)
 {
@@ -91,35 +95,35 @@ CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInf
     WAVEFORMATEX* pwfx = nullptr;
     HRESULT hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "CoCreateInstance failed in line %d with HRESULT: 0x%08X", hr); 
+      LOGEF(LOG_TAG, "CoCreateInstance failed  HRESULT: 0x%08X", hr); 
       goto EXIT;
     }
 
     hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "pEnumerator->GetDefaultAudioEndpoint failed in line %d with HRESULT: 0x%08X", hr); 
+      LOGEF(LOG_TAG, "pEnumerator->GetDefaultAudioEndpoint failed with HRESULT: 0x%08X", hr); 
       goto EXIT;
     }
 
     hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "pDevice->Activate failed in line %d with HRESULT: 0x%08X", hr);
+      LOGEF(LOG_TAG, "pDevice->Activate failed with HRESULT: 0x%08X", hr);
       goto EXIT;
     }
 
     hr = pAudioClient->GetMixFormat(&pwfx);
     if (FAILED(hr)) {
-      LOGEF(LOG_TAG, "pAudioClient->GetMixFormat failed in line %d with HRESULT: 0x%08X", hr);
+      LOGEF(LOG_TAG, "pAudioClient->GetMixFormat failed with HRESULT: 0x%08X", hr);
       goto EXIT;
     }
 
     deviceDefaultFormatInfo.sampleRate = pwfx->nSamplesPerSec;
     deviceDefaultFormatInfo.channels = pwfx->nChannels;
-    switch (pwfx->nBlockAlign)
+    switch (pwfx->wBitsPerSample)
     {
     case 8: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_U8; break;
     case 16: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_S16; break;
-    case 32: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_S32; break;
+    case 32: deviceDefaultFormatInfo.fmt = AVSampleFormat::AV_SAMPLE_FMT_FLT; break;
     }
 
   EXIT:
@@ -202,7 +206,7 @@ void CSoundDevice::PlayerThread(void* p)
   IAudioClient* pAudioClient = NULL;
   IAudioRenderClient* pRenderClient = NULL;
   IAudioStreamVolume* pAudioStreamVolume = NULL;
-  DWORD flags = 0;
+  DWORD flags = 0, requestFrameCount = 0;
   BYTE* pData;
   WAVEFORMATEX* pwfx = nullptr;
 
@@ -290,18 +294,23 @@ RESET:
   SetEvent(device->hEventResetDone);
   SetEvent(device->hEventCreateDone);
 
+  //动态获取需要填充的数据大小
+  requestFrameCount = device->bufferFrameCount;
+  if (device->requestDataSizeCallback)
+    device->requestDataSizeCallback(device->parent, device->bufferFrameCount, &requestFrameCount);
+
   // 抓取整个缓冲区进行初始填充操作。
-  hr = pRenderClient->GetBuffer(device->bufferFrameCount, &pData);
+  hr = pRenderClient->GetBuffer(requestFrameCount, &pData);
   EXIT_ON_ERROR(hr);
 
   // 将初始数据加载到共享缓冲区中。
-  device->copyDataCallback(device->parent, pData, device->bufferFrameCount * pwfx->nBlockAlign);
+  device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
 
-  hr = pRenderClient->ReleaseBuffer(device->bufferFrameCount, flags);
+  hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
   EXIT_ON_ERROR(hr);
 
   // 计算分配的缓冲区的实际持续时间。
-  hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * device->bufferFrameCount / pwfx->nSamplesPerSec);
+  hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * requestFrameCount / pwfx->nSamplesPerSec);
 
   //循环
   while (device->createSuccess)
@@ -335,14 +344,36 @@ RESET:
       if (numFramesAvailable == 0)
         break;
 
-      hr = pRenderClient->GetBuffer(numFramesAvailable, &pData);
-      EXIT_ON_ERROR(hr)
-        
-      //读取
-      hasMoreData = device->copyDataCallback(device->parent, pData, numFramesAvailable * pwfx->nBlockAlign);
+      //动态获取需要填充的数据大小
+      requestFrameCount = numFramesAvailable;
+      if (device->requestDataSizeCallback)
+        device->requestDataSizeCallback(device->parent, numFramesAvailable, &requestFrameCount);
 
-      hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
-      EXIT_ON_ERROR(hr)
+      if (requestFrameCount > 0) {
+
+        hr = pRenderClient->GetBuffer(requestFrameCount, &pData);
+        EXIT_ON_ERROR(hr)
+
+        //读取
+        hasMoreData = device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
+
+        hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
+        EXIT_ON_ERROR(hr)
+
+          LOGDF("D: Buffer: %d", requestFrameCount);
+      }
+      else {
+        hr = pRenderClient->GetBuffer(numFramesAvailable, &pData);
+        EXIT_ON_ERROR(hr)
+
+        memset(pData, 0, numFramesAvailable * pwfx->nBlockAlign);
+        hasMoreData = true;
+
+        hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
+        EXIT_ON_ERROR(hr)
+
+          LOGD("D: Empty data");
+      }
 
       if (!hasMoreData) {
         // 等待缓冲区中的最后一个数据播放后再停止。

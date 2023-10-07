@@ -103,7 +103,7 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height) {
 		}
 		case PLAYER_EVENT_PLAY_DONE: {
 			playData->openSuccess = false;
-			SDL_DestroyWindow(playData->window);
+			playData->quit = true;
 			break;
 		}
 		case PLAYER_EVENT_INIT_DECODER_DONE: {

@@ -252,13 +252,13 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 	}
 
 	//找到对应的流
-	for (int i = 0; i < formatContext->nb_streams; i++) {
+	for (int i = 0; i < (int)formatContext->nb_streams; i++) {
 		if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
 			videoIndex = i;
 			break;
 		}
 	}
-	for (int i = 0; i < formatContext->nb_streams; i++) {
+	for (int i = 0; i < (int)formatContext->nb_streams; i++) {
 		if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
 			audioIndex = i;
 			break;

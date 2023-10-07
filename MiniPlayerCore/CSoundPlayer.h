@@ -46,7 +46,7 @@ public:
 	bool GetShouldReSample() { return true; }
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
-	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len);
+	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
 
 private:
 	CSoundDecoder* decoder = nullptr;

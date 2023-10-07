@@ -70,6 +70,8 @@ public:
 
 //AAC 1024
 #define ACC_NB_SAMPLES 1024
-
+#define ACC_SAMPLE_RATE 44100
+#define ACC_CHANNELS 2
+#define ACC_SAMPLE_FMT AVSampleFormat::AV_SAMPLE_FMT_FLT
 
 #endif //VR720_CCPLAYERDEFINE_H

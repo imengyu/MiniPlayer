@@ -70,23 +70,43 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   
   // 重采样后，每个通道包含的采样数
   // acc默认为1024，重采样后可能会变化
-  int destNbSample = (int)av_rescale_rnd(
+  destNbSample = (int)av_rescale_rnd(
     ACC_NB_SAMPLES,
     audioDeviceDefaultFormatInfo.sampleRate,
     externalData->AudioCodecContext->sample_rate, 
     AV_ROUND_UP
   );
+
   // 重采样后一帧数据的大小
   destDataSize = (size_t)av_samples_get_buffer_size(
-    nullptr,
+    &destLinesize,
     audioDeviceDefaultFormatInfo.channels,
     destNbSample,
     audioDeviceDefaultFormatInfo.fmt, 
     1
+  ); 
+  
+  destDataSizePerSample = av_get_bytes_per_sample(audioDeviceDefaultFormatInfo.fmt);
+  destDataSizeOne = (size_t)av_samples_get_buffer_size(
+    &destLinesize,
+    audioDeviceDefaultFormatInfo.channels,
+    1,
+    audioDeviceDefaultFormatInfo.fmt,
+    1
   );
 
-  audioOutBuffer = (uint8_t*)malloc(destDataSize);
+  av_samples_alloc_array_and_samples(
+    &audioOutBuffer, 
+    &destLinesize,
+    audioDeviceDefaultFormatInfo.channels, 
+    destNbSample,
+    audioDeviceDefaultFormatInfo.fmt,
+    0
+  );
+
+  fopen_s(&out_file, "out.pcm", "wb");
   audioDevice->SetOnCopyDataCallback(RenderAudioBufferDataStub);
+  audioDevice->SetOnRequestDataSizeCallback(RenderAudioRequestFrameSizeStub);
 
   return true;
 }
@@ -101,7 +121,7 @@ void CCPlayerRender::Destroy() {
     swr_free(&swrContext);
   }
   if (audioOutBuffer != nullptr) {
-    free(audioOutBuffer);
+    av_freep(audioOutBuffer);
     audioOutBuffer = nullptr;
   }
   if (audioDevice != nullptr) {
@@ -113,18 +133,18 @@ void CCPlayerRender::Destroy() {
     videoDevice->Destroy();
     videoDevice = nullptr;
   }
+  
+  fclose(out_file);
 }
 void CCPlayerRender::Stop() {
   if (status != CCRenderState::NotRender) {
     status = CCRenderState::NotRender;
 
     if (renderVideoThread) {
-      renderVideoThread->join();
       delete renderVideoThread;
       renderVideoThread = nullptr;
     }
     if (renderAudioThread) {
-      renderAudioThread->join();
       delete renderAudioThread;
       renderAudioThread = nullptr;
     }
@@ -227,27 +247,27 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
       //LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
       if (currentVideoClock > currentAudioClock) {
         if (diff > 1) {
-          av_usleep((int64_t)((delays * 2) * 1000000));
+          av_usleep((uint32_t)((delays * 2) * 1000000));
         }
         else {
-          av_usleep((int64_t)((delays + diff) * 1000000));
+          av_usleep((uint32_t)((delays + diff) * 1000000));
         }
       }
       else {
         if (diff >= 0.55) {
           externalData->DecodeQueue->ReleaseFrame(frame);
-          /*int count = */externalData->DecodeQueue->VideoDrop(currentAudioClock);
+          int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
           //LOGDF("Sync: drop video pack: %d", count);
           return true;
         }
         else {
-          av_usleep((int64_t)1000);
+          av_usleep((uint32_t)1000);
         }
       }
     }
     else {
       //正常播放
-      av_usleep((int64_t)(delays * 1000000));
+      av_usleep((uint32_t)(delays * 1000000));
     }
   }
 
@@ -288,6 +308,8 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
     LOGD("RenderVideoThread SeekToPosFinished");
     return false;
   }
+
+  return true;
 }
 void* CCPlayerRender::RenderVideoThreadStub(void* param) {
   void* result = ((CCPlayerRender*)param)->RenderVideoThread();
@@ -306,20 +328,31 @@ void* CCPlayerRender::RenderVideoThread() {
   return nullptr;
 }
 
-bool CCPlayerRender::RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len) {
-  return dynamic_cast<CCPlayerRender*>(instance)->RenderAudioBufferData(buf, buf_len);
+bool CCPlayerRender::RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample) {
+  return dynamic_cast<CCPlayerRender*>(instance)->RenderAudioBufferData(buf, buf_len, sample);
 }
-bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len) {
+bool CCPlayerRender::RenderAudioRequestFrameSizeStub(CSoundDeviceHoster* instance, DWORD maxSample, DWORD* sample)
+{
+  return dynamic_cast<CCPlayerRender*>(instance)->RenderAudioRequestFrameSize(maxSample, sample);
+}
+bool CCPlayerRender::RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample) {
   if (status == CCRenderState::Rendering) {
 
-    AVFrame* frame = nullptr;
-    int noneFrameTick = 0;
+    auto audioDeviceDefaultFormatInfo = audioDevice->RequestDeviceDefaultFormatInfo();
 
-    while (frame == nullptr) {
-      av_usleep((int64_t)(10000));
-      frame = externalData->DecodeQueue->AudioFrameDequeue();
-      if (noneFrameTick < 32) noneFrameTick++;
-      else return false;
+    //有遗留数据，需要先取用
+    if (destLeaveSamples > 0) {
+      auto thisSample = min(destLeaveSamples, maxSample);
+      *sample = thisSample;
+      destLeaveSamples -= thisSample;
+      destDataOffset += destDataSizeOne * thisSample;
+      return true;
+    }
+
+    AVFrame* frame = externalData->DecodeQueue->AudioFrameDequeue();
+    if (frame == nullptr) {
+      *sample = 0;
+      return false;
     }
 
     //时钟
@@ -333,43 +366,39 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len) {
     curAudioPts = frame->pts;
 
     {
-      int samples = swr_convert(
-        swrContext, 
-        &audioOutBuffer,
-        (int)destDataSize / destChannels,
-        (const uint8_t**)frame->data, 
+      destDataSamples = swr_convert(
+        swrContext,
+        audioOutBuffer,
+        destNbSample,
+        (const uint8_t**)frame->data,
         frame->nb_samples
       );
 
-      if (samples > 0) {
-        memcpy_s(buf, buf_len, (void*)audioOutBuffer, destDataSize);
+      if (destDataSamples > 0) {
+        *sample = min(destDataSamples, maxSample);
+        if (destDataSamples > maxSample) {
+          destLeaveSamples = destDataSamples - maxSample;
+          destDataOffset = destDataSizeOne * destLeaveSamples;
+        }
+        else {
+          destLeaveSamples = 0;
+          destDataOffset = 0;
+        }
 
         //pts时间+当前帧播放需要的时间
-        currentAudioClock += samples / ((double)(audioDevice->RequestDeviceDefaultFormatInfo().sampleRate * destChannels));
+        currentAudioClock += destDataSamples / ((double)(audioDeviceDefaultFormatInfo.sampleRate * destChannels));
       }
-
-      // 转换，返回每个通道的样本数
-       /*int samples = swr_convert(swrContext, audioOutBuffer, (int)destDataSize / 2,
-        (const uint8_t**)frame->data, frame->nb_samples);
-
-     
-      if (samples > 0) {
-        *buf = audioOutBuffer[0];
-        *len = destDataSize;
-
-        //pts时间+当前帧播放需要的时间
-        currentAudioClock += samples / ((double)(audioDevice->RequestDeviceDefaultFormatInfo().sampleRate * 2 * 2));
-      }*/
-
-      //audioDevice->Write(audioOutBuffer[0], (size_t) destDataSize, 0);
-
-      //double frame_delays = 1.0 / externalData->CurrentFps;
-      //double extra_delay = frame->repeat_pict / (2 * externalData->CurrentFps);
-      //double delays = (extra_delay + frame_delays) / 2;
-      //av_usleep((int64_t)(delays * 1000000));
     }
 
     externalData->DecodeQueue->ReleaseFrame(frame);
+  }
+  return true;
+}
+bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample) 
+{
+  if (buf) {
+    memcpy_s(buf, buf_len, (void*)(audioOutBuffer[0] + destDataOffset), min(buf_len, (DWORD)destLinesize));
+    fwrite((void*)(audioOutBuffer[0] + destDataOffset), destDataSizePerSample * 2, sample, out_file);
   }
   return true;
 }

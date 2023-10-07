@@ -35,14 +35,6 @@ public:
   virtual void SetVolume(int i);
   virtual int GetVolume() { return 0; }
 
-  virtual bool GetCurrentSeekToPosFinished() {
-    if (currentSeekToPosFinished) {
-      currentSeekToPosFinished = false;
-      return true;
-    }
-    return false;
-  }
-
   virtual void SyncRender();
 
   bool GetShouldReSample() { return false; }
@@ -64,8 +56,15 @@ private:
   int64_t curAudioPts = 0;	//记录当前播放的音频流Packet的DTS
 
   // 输出缓冲
-  uint8_t* audioOutBuffer = nullptr;
+  uint8_t** audioOutBuffer = nullptr;
   size_t destDataSize = 0;
+  size_t destDataSizeOne = 0;
+  uint32_t destNbSample = 0;
+  int destLinesize = 0;
+  uint32_t destDataSizePerSample = 0;
+  uint32_t destDataSamples = 0;
+  uint32_t destDataOffset = 0;
+  uint32_t destLeaveSamples = 0;
   int destChannels = 0;
 
   //时钟
@@ -98,9 +97,12 @@ private:
   void* RenderVideoThread();
   bool RenderVideoThreadWorker();
 
-  static bool RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len);
-  bool RenderAudioBufferData(LPVOID buf, DWORD buf_len);
+  static bool RenderAudioRequestFrameSizeStub(CSoundDeviceHoster* instance, DWORD maxSample, DWORD *sample);
+  static bool RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
+  bool RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample);
+  bool RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample);
 
+  FILE* out_file;
 };
 
 

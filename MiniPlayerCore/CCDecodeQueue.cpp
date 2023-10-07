@@ -7,6 +7,8 @@
 #include "CCVideoPlayer.h"
 #include "Logger.h"
 
+#define QUEUE_MAX_SIZE 65535
+
 void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
 
   if (!initState) {
@@ -189,6 +191,8 @@ AVPacket* CCDecodeQueue::RequestPacket() {
 void CCDecodeQueue::AllocPacketPool(int size) {
   for (int i = 0; i < size; i++)
     packetPool.push_back(av_packet_alloc());
+  if (packetPool.size() > QUEUE_MAX_SIZE)
+    LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
 }
 void CCDecodeQueue::ReleasePacketPool() {
   for (auto packet : packetPool)
@@ -237,6 +241,8 @@ AVFrame* CCDecodeQueue::RequestFrame() {
 void CCDecodeQueue::AllocFramePool(int size) {
   for (int i = 0; i < size; i++)
     framePool.push_back(av_frame_alloc());
+  if (framePool.size() > QUEUE_MAX_SIZE)
+    LOGEF("Frame Pool size too large! Size: %d", framePool.size());
 }
 void CCDecodeQueue::ReleaseFramePool() {
   for (auto frame : framePool)

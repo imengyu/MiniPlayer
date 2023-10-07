@@ -19,7 +19,8 @@ public:
   virtual int GetChannelsCount() { return 0; }
 };
 
-typedef bool(*OnCopyDataCallback)(CSoundDeviceHoster* instance, LPVOID buf, DWORD  buf_len);
+typedef bool(*OnCopyDataCallback)(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
+typedef bool(*OnRequestDataSizeCallback)(CSoundDeviceHoster* instance, DWORD maxSample, DWORD* nextSample);
 
 struct CSoundDeviceDeviceDefaultFormatInfo {
   AVSampleFormat fmt;
@@ -40,6 +41,7 @@ public:
   bool Start();
 
   void SetOnCopyDataCallback(OnCopyDataCallback callback);
+  void SetOnRequestDataSizeCallback(OnRequestDataSizeCallback callback);
 
   float GetVolume(int index);
   void SetVolume(int index, float value);
@@ -59,6 +61,7 @@ private:
   UINT32 bufferFrameCount = 0;
   UINT32 numFramesPadding = 0;
 
+  OnRequestDataSizeCallback requestDataSizeCallback = nullptr;
   OnCopyDataCallback copyDataCallback = nullptr;
 
   static void PlayerThread(void*p);
