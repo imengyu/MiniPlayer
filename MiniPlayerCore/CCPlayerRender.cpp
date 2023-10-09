@@ -377,8 +377,8 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
     //请求帧
     AVFrame* frame = externalData->DecodeQueue->AudioFrameDequeue();
     if (frame == nullptr) {
-      LOGD("Empty audio frame");
-      return false;
+      memset(buf, 0, buf_len);
+      return true;
     }
 
     //时钟

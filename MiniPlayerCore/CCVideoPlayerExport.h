@@ -48,7 +48,7 @@ public:
   /**
    * 同步队列最大大小
    */
-  size_t MaxRenderQueueSize = 32;
+  size_t MaxRenderQueueSize = 60;
   /**
    * 同步队列增长步长
    */
@@ -178,7 +178,17 @@ public:
   *   * vol：音量，0-100
   */
   virtual void SetVideoVolume(int vol) {}
+  /*
+  * 设置视频播放器是否循环播放
+  * 参数：
+  *   * loop：是否循环
+  */
+  virtual void SetVideoLoop(bool loop) {}
 
+  /*
+  * 获取播放器是否循环播放
+  */
+  virtual bool GetVideoLoop() { return false; }
   /*
   * 获取播放器当前状态
   */

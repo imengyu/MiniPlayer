@@ -83,6 +83,8 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
 
+	player->SetVideoLoop(true);
+
 	//播放器回调
 	player->SetPlayerEventCallback([] (CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
 		auto playData = (PlayVideoData*)(customData);

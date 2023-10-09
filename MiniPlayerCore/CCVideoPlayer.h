@@ -40,7 +40,9 @@ public:
     void SetVideoState(CCVideoState newState);
     void SetVideoPos(int64_t pos);
     void SetVideoVolume(int vol);
+    void SetVideoLoop(bool loop);
 
+    bool GetVideoLoop();
     CCVideoState GetVideoState();
     int64_t GetVideoLength();
     int64_t GetVideoPos();
@@ -73,6 +75,7 @@ protected:
     int lastErrorCode = 0;
     std::wstring lastErrorMessage;
     std::string currentFile;
+    bool loop = false;
 
     CCVideoPlayerEventCallback videoPlayerEventCallback = nullptr;
     void*videoPlayerEventCallbackData = nullptr;

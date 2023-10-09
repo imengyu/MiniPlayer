@@ -199,6 +199,7 @@ int64_t CCVideoPlayer::GetVideoPos() {
   else
     return (int64_t)(render->GetCurVideoPts() * av_q2d(formatContext->streams[videoIndex]->time_base) * 1000);
 }
+bool CCVideoPlayer::GetVideoLoop() { return loop; }
 CCVideoState CCVideoPlayer::GetVideoState() { return videoState; }
 int64_t CCVideoPlayer::GetVideoLength() {
   if (!formatContext) {
@@ -209,6 +210,10 @@ int64_t CCVideoPlayer::GetVideoLength() {
   return (int64_t)(formatContext->duration / (double)AV_TIME_BASE * (double)1000); //ms
 }
 void CCVideoPlayer::SetVideoVolume(int vol) { render->SetVolume(vol); }
+void CCVideoPlayer::SetVideoLoop(bool loop)
+{
+  this->loop = loop;
+}
 int CCVideoPlayer::GetVideoVolume() { return render->GetVolume(); }
 void CCVideoPlayer::GetVideoSize(int* w, int* h) {
   if (formatContext) {
@@ -531,12 +536,16 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   //读取线程，解复用线程
   int ret;
   int start = 100;
+  bool seeked = false;
   LOGIF("DecoderWorkerThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
   while (decodeState == CCDecodeState::Decoding) {
 
     auto maxMaxRenderQueueSize =  InitParams.MaxRenderQueueSize;
-    if (decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize || decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize) {
+    if (
+      decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize 
+      || decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize
+    ) {
       av_usleep(10000);
       continue;
     }
@@ -559,22 +568,35 @@ void* CCVideoPlayer::DecoderWorkerThread() {
         decodeQueue.VideoEnqueue(avPacket);//添加视频包至队列中
       else
         decodeQueue.ReleasePacket(avPacket);
+      seeked = false;
     }
     else if (ret == AVERROR_EOF) {
+      decodeQueue.ReleasePacket(avPacket);
+
       //读取完成，但是可能还没有播放完成
       if (
-        decodeQueue.AudioQueueSize() == 0
-        && decodeQueue.VideoQueueSize() == 0
+        decodeQueue.VideoFrameQueueSize() == 0 && 
+        decodeQueue.AudioFrameQueueSize() == 0
       ) {
-        decodeQueue.ReleasePacket(avPacket);
-        decodeState = CCDecodeState::Finish;
-        break;
+
+        //如果循环，则跳到第一帧播放
+        if (loop) {
+          if (!seeked) {
+            ret = av_seek_frame(formatContext, -1, formatContext->start_time, 0);
+            if (ret < 0)
+              LOGEF("DecoderWorkerThread : av_seek_frame failed : %d", ret);
+            seeked = true;
+          }
+        }
+        else {
+          //不循环，结束状态
+          decodeState = CCDecodeState::Finish;
+          break;
+        }
       }
-      else
-        decodeQueue.ReleasePacket(avPacket);
     }
     else {
-      LOGEF("DecoderWorkerThread", "av_read_frame failed : %d", ret);
+      LOGEF("DecoderWorkerThread : av_read_frame failed : %d", ret);
       decodeQueue.ReleasePacket(avPacket);
       decodeState = CCDecodeState::FinishedWithError;
       break;
@@ -591,7 +613,14 @@ void* CCVideoPlayer::DecoderVideoThread() {
   int ret;
   AVPacket* packet;
   AVFrame* frame;
+  auto maxMaxRenderQueueSize = InitParams.MaxRenderQueueSize;
   while (decodeState >= CCDecodeState::Decoding) {
+
+    //延时
+    if (decodeQueue.VideoFrameQueueSize() > maxMaxRenderQueueSize) {
+      av_usleep(1000 * 100);
+      continue;
+    }
 
     packet = decodeQueue.VideoDequeue();
     if (!packet) {
@@ -606,11 +635,6 @@ void* CCVideoPlayer::DecoderVideoThread() {
 
       av_usleep(1000 * 50);
       continue;
-    }
-
-    //延时
-    if (decodeQueue.VideoFrameQueueSize() > 50u) {
-      av_usleep(1000 * 100);
     }
 
     //把包丢给解码器
@@ -659,7 +683,13 @@ void* CCVideoPlayer::DecoderAudioThread() {
   int ret;
   AVPacket* packet;
   AVFrame* frame;
+  auto maxMaxRenderQueueSize = InitParams.MaxRenderQueueSize;
   while (decodeState >= CCDecodeState::Decoding) {
+
+    if (decodeQueue.AudioFrameQueueSize() > maxMaxRenderQueueSize) {
+      av_usleep(1000 * 20);
+      continue;
+    }
 
     packet = decodeQueue.AudioDequeue();
     //延时
@@ -676,10 +706,6 @@ void* CCVideoPlayer::DecoderAudioThread() {
 
       av_usleep(1000 * 10);
       continue;
-    }
-
-    if (decodeQueue.AudioFrameQueueSize() > 20u) {
-      av_usleep(1000 * 20);
     }
 
     //把包丢给解码器
