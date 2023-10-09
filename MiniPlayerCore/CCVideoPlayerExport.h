@@ -4,23 +4,23 @@
 //播放器错误
 //***************************************
 
-#define VIDEO_PLAYER_ERROR_NOW_IS_LOADING 26
-#define VIDEO_PLAYER_ERROR_ALREADY_OPEN 27
-#define VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET 28
-#define VIDEO_PLAYER_ERROR_NOT_OPEN 29
-#define VIDEO_PLAYER_ERROR_AV_ERROR 30 //FOR UI
-#define VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM 31 //FOR UI
-#define VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT 32 //FOR UI
-#define VIDEO_PLAYER_ERROR_NOR_INIT 33
+#define VIDEO_PLAYER_ERROR_NOW_IS_LOADING     26 //正在加载中，需要等待
+#define VIDEO_PLAYER_ERROR_ALREADY_OPEN       27 //已经打开文件，无需重复打开
+#define VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET 28 //此状态只能获取不能设置
+#define VIDEO_PLAYER_ERROR_NOT_OPEN           29 //播放器处于未打开状态
+#define VIDEO_PLAYER_ERROR_AV_ERROR           30 //ffmpeg错误
+#define VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM    31 //当前文件无视频通道
+#define VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT  32 //视频格式不支持
+#define VIDEO_PLAYER_ERROR_NOR_INIT           33 //播放器未初始化
 
 //播放器事件
 //***************************************
-#define PLAYER_EVENT_OPEN_DONE 1
-#define PLAYER_EVENT_CLOSED 2
-#define PLAYER_EVENT_PLAY_DONE 3
-#define PLAYER_EVENT_OPEN_FAIED 4
-#define PLAYER_EVENT_INIT_DECODER_DONE 5
-#define PLAYER_EVENT_RENDER_DATA_CALLBACK 6
+#define PLAYER_EVENT_OPEN_DONE            1 //文件打开完成
+#define PLAYER_EVENT_CLOSED               2 //文件关闭完成
+#define PLAYER_EVENT_PLAY_DONE            3 //文件播放至末尾
+#define PLAYER_EVENT_OPEN_FAIED           4 //文件打开失败
+#define PLAYER_EVENT_INIT_DECODER_DONE    5 //初始化解码器完成
+#define PLAYER_EVENT_RENDER_DATA_CALLBACK 6 //渲染回调，仅在 CCVideoPlayerInitParams.UseRenderCallback = true 时触发此事件。
 
 //解码器状态值
 //***************************************
@@ -48,7 +48,7 @@ public:
   /**
    * 同步队列最大大小
    */
-  size_t MaxRenderQueueSize = 60;
+  size_t MaxRenderQueueSize = 32;
   /**
    * 同步队列增长步长
    */
@@ -108,7 +108,7 @@ typedef void (*CCVideoPlayerEventCallback)(CCVideoPlayerAbstract* player, int me
 #define PLAYER_EVENT_RDC_TYPE_RESET 3
 #define PLAYER_EVENT_RDC_TYPE_DESTROY 4
 
-//PLAYER_EVENT_RENDER_DATA_CALLBACK
+//事件 PLAYER_EVENT_RENDER_DATA_CALLBACK 的参数定义
 class CCVideoPlayerCallbackDeviceData {
 public:
   int type;
@@ -128,34 +128,107 @@ public:
   //初始配置和状态信息
   //**********************
 
+  /*
+  * 获取初始配置
+  */
   virtual CCVideoPlayerInitParams* GetInitParams() { return nullptr; }
 
   //播放器公共方法
   //**********************
 
+  /*
+  * 打开文件
+  * 参数：
+  *   * filePath：文件路径
+  * 返回值：
+  *   操作是否成功
+  */
   virtual bool OpenVideo(const char* filePath) { return false; }
+  /*
+  * 打开文件
+  * 参数：
+  *   * filePath：文件路径
+  * 返回值：
+  *   操作是否成功
+  */
   virtual bool OpenVideo(const wchar_t* filePath) { return false; }
+  /*
+  * 关闭文件
+  * 返回值：
+  *   操作是否成功
+  */
   virtual bool CloseVideo() { return false; }
 
+  /*
+  * 设置播放器的状态，支持 暂停，继续，关闭
+  * 参数：
+  *   * newState：状态
+  */
   virtual void SetVideoState(CCVideoState newState) {}
+  /*
+  * 设置播放器的播放位置（跳帧）。
+  * 此操作只能跳至I帧。
+  * 参数：
+  *   * pos：位置，以毫秒为单位。
+  */
   virtual void SetVideoPos(int64_t pos) {}
+  /*
+  * 设置播放器的音量
+  * 参数：
+  *   * vol：音量，0-100
+  */
   virtual void SetVideoVolume(int vol) {}
 
+  /*
+  * 获取播放器当前状态
+  */
   virtual CCVideoState GetVideoState() { return CCVideoState::Unknown; }
+  /*
+  * 获取播放器当前状态
+  * 返回值：
+  *   视频时长，以毫秒为单位
+  */
   virtual int64_t GetVideoLength() { return 0; }
+  /*
+  * 获取播放器当前播放位置
+  * 返回值：
+  *   以毫秒为单位
+  */
   virtual int64_t GetVideoPos() { return 0; }
+  /*
+  * 获取播放器的音量
+  * 返回值：
+  *   音量，0-100
+  */
   virtual int GetVideoVolume() { return 0; }
+  /*
+  * 获取视频
+  * 输出参数：
+  *   * w: 视频的宽度
+  *   * h: 视频的高度
+  */
   virtual void GetVideoSize(int* w, int* h) {}
 
   //回调
   //**********************
 
+  /*
+  * 设置播放器事件回调
+  * 事件值：参见下方 PLAYER_EVENT_
+  */
   virtual void SetPlayerEventCallback(CCVideoPlayerEventCallback callback, void* data) {}
+  /*
+  * 获取播放器事件回调
+  */
   virtual CCVideoPlayerEventCallback GetPlayerEventCallback() { return nullptr; }
 
   //同步渲染
   //**********************
 
+  /*
+  * 手动触发同步渲染，仅在 CCVideoPlayerInitParams.SyncRender = true 时有效。
+  * 同步渲染触发后，回调事件 PLAYER_EVENT_RENDER_DATA_CALLBACK 与当前调用处于同一个线程。
+  */
   virtual void SyncRender() {}
 
   //错误处理
@@ -163,7 +236,10 @@ public:
 
   virtual void SetLastError(int code, const wchar_t* errmsg) {}
   virtual void SetLastError(int code, const char* errmsg) {}
+  //获取错误信息
   virtual const wchar_t* GetLastErrorMessage() { return L""; }
+  //获取错误号
+  //返回值：参见上方：VIDEO_PLAYER_ERROR_*
   virtual int GetLastError() const { return 0; }
 };
 

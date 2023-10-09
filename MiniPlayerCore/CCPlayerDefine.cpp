@@ -38,8 +38,6 @@ const char* CCDecodeStateToString(CCDecodeState state) {
             return "FinishedWithError";
         case CCDecodeState::Decoding:
             return "Decoding";
-        case CCDecodeState::DecodingToSeekPos:
-            return "DecodingToSeekPos";
         case CCDecodeState::Finish:
             return "Finish";
     }

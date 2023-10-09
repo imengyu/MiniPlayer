@@ -102,7 +102,8 @@ public:
 	virtual void SetLastError(int code, const wchar_t* errmsg) {}
 	//设置错误状态
 	virtual void SetLastError(int code, const char* errmsg) {}
-	//获取上次错误信息
+	//获取上次错误码
+	//返回值：参见下方 PLAYER_ERROR_*
 	virtual int GetLastError() { return 0; }
 	//获取上次错误信息
 	virtual const wchar_t* GetLastErrorMessage() { return L""; }
@@ -120,13 +121,13 @@ public:
 	virtual void SetPositionSample(unsigned int sample) {}
 };
 
-#define PLAYER_ERROR_NONE 0
-#define PLAYER_ERROR_FILE_OPEN_FAILED 1
-#define PLAYER_ERROR_DECODER_ERROR 2
-#define PLAYER_ERROR_UNKNOWN_FILE_FORMAT 3
-#define PLAYER_ERROR_NOT_SUPPORT_FORMAT 4
-#define PLAYER_ERROR_OUTPUT_ERROR 5
-#define PLAYER_ERROR_NOT_LOAD 6
+#define PLAYER_ERROR_NONE                0 //无错误
+#define PLAYER_ERROR_FILE_OPEN_FAILED    1 //文件打开错误
+#define PLAYER_ERROR_DECODER_ERROR       2 //解码器错误
+#define PLAYER_ERROR_UNKNOWN_FILE_FORMAT 3 //未知文件格式
+#define PLAYER_ERROR_NOT_SUPPORT_FORMAT  4 //不支持的格式
+#define PLAYER_ERROR_OUTPUT_ERROR        5 //输出音频设备错误
+#define PLAYER_ERROR_NOT_LOAD            6 //未加载成功，请稍等或者检查打开状态
 
 
 

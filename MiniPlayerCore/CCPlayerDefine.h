@@ -30,7 +30,6 @@ enum class CCDecodeState {
   Finished = 4,
   FinishedWithError = 5,
   Decoding = 6,
-  DecodingToSeekPos = 7,
   Finish = 8,
 };
 

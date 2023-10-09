@@ -130,7 +130,7 @@ int CCDecodeQueue::VideoDrop(double targetClock) {
       AVFrame* frame = *it;
       frameClock = frame->best_effort_timestamp == AV_NOPTS_VALUE ?
         frame->pts : frame->best_effort_timestamp * av_q2d(externalData->VideoTimeBase);
-      if ((droppedCount >= videoFrameQueue.size() / 3
+      if ((droppedCount >= (int)videoFrameQueue.size() / 3
         || frameClock >= targetClock)
         && it != videoFrameQueue.begin())
         break;

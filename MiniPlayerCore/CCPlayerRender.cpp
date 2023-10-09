@@ -95,18 +95,24 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
     1
   );
 
+  //申请音频缓冲区大小
+  //为了可以最快速将所有数据拷贝到WASAPI，这里还有一个遗留缓冲
+  audioOutLeave = new CAppendBuffer(destDataSize * 2);
   av_samples_alloc_array_and_samples(
-    &audioOutBuffer, 
+    &audioOutBuffer,
     &destLinesize,
-    audioDeviceDefaultFormatInfo.channels, 
+    audioDeviceDefaultFormatInfo.channels,
     destNbSample,
     audioDeviceDefaultFormatInfo.fmt,
     0
   );
 
-  fopen_s(&out_file, "out.pcm", "wb");
   audioDevice->SetOnCopyDataCallback(RenderAudioBufferDataStub);
-  audioDevice->SetOnRequestDataSizeCallback(RenderAudioRequestFrameSizeStub);
+
+
+#if _DEBUG
+  fopen_s(&out_file, "out.pcm", "wb");
+#endif
 
   return true;
 }
@@ -120,9 +126,13 @@ void CCPlayerRender::Destroy() {
   if (swrContext != nullptr) {
     swr_free(&swrContext);
   }
+  if (audioOutLeave != nullptr) {
+    delete audioOutLeave;
+    audioOutLeave = nullptr;
+  }
   if (audioOutBuffer != nullptr) {
     av_freep(audioOutBuffer);
-    audioOutBuffer = nullptr;
+    audioOutBuffer[0] = nullptr;
   }
   if (audioDevice != nullptr) {
     audioDevice->Stop();
@@ -133,8 +143,10 @@ void CCPlayerRender::Destroy() {
     videoDevice->Destroy();
     videoDevice = nullptr;
   }
-  
-  fclose(out_file);
+  if (out_file) {
+    fclose(out_file);
+    out_file = nullptr;
+  }
 }
 void CCPlayerRender::Stop() {
   if (status != CCRenderState::NotRender) {
@@ -201,9 +213,11 @@ void CCPlayerRender::SyncRender()
 }
 
 bool CCPlayerRender::RenderVideoThreadWorker() {
-  if (outFrame == nullptr || outFrameDestFormat != externalData->InitParams->DestFormat
+  if (outFrame == nullptr 
+    || outFrameDestFormat != externalData->InitParams->DestFormat
     || outFrameDestWidth != externalData->InitParams->DestWidth
-    || outFrameDestHeight != externalData->InitParams->DestHeight) {
+    || outFrameDestHeight != externalData->InitParams->DestHeight
+    ) {
 
     if (outFrame != nullptr)
       av_frame_free(&outFrame);
@@ -222,6 +236,7 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
 
   if (frame == nullptr) {
     av_usleep((int64_t)(100000));
+    LOGD("Empty video frame");
     return true;
   }
 
@@ -331,27 +346,38 @@ void* CCPlayerRender::RenderVideoThread() {
 bool CCPlayerRender::RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample) {
   return dynamic_cast<CCPlayerRender*>(instance)->RenderAudioBufferData(buf, buf_len, sample);
 }
-bool CCPlayerRender::RenderAudioRequestFrameSizeStub(CSoundDeviceHoster* instance, DWORD maxSample, DWORD* sample)
+bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample) 
 {
-  return dynamic_cast<CCPlayerRender*>(instance)->RenderAudioRequestFrameSize(maxSample, sample);
-}
-bool CCPlayerRender::RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample) {
-  if (status == CCRenderState::Rendering) {
+  if (buf && buf_len && status == CCRenderState::Rendering) {
 
+    auto buffer = CAppendBuffer(buf, buf_len);
     auto audioDeviceDefaultFormatInfo = audioDevice->RequestDeviceDefaultFormatInfo();
 
-    //有遗留数据，需要先取用
+    size_t bufOffset = 0;
+    int copyedSamples = 0;
+
     if (destLeaveSamples > 0) {
-      auto thisSample = min(destLeaveSamples, maxSample);
-      *sample = thisSample;
-      destLeaveSamples -= thisSample;
-      destDataOffset += destDataSizeOne * thisSample;
+      copyedSamples = min(destLeaveSamples, sample);
+      //上次有多余数据，但数据少于缓冲区大小，则先拷走数据，然后再解码一帧，填满缓冲区
+      buffer.Append(audioOutLeave->Data(), min(buf_len, copyedSamples * destDataSizeOne));
+      audioOutLeave->Increase(min(buf_len, copyedSamples * destDataSizeOne));
+      destLeaveSamples -= copyedSamples;
+    }
+    if (destLeaveSamples > 0) {
+      //上次有多余数据多余缓冲区大小，这一次就不解码下一帧了
+      if (audioOutLeave->GetSpaceSize() > audioOutLeave->GetSize() / 3)
+        audioOutLeave->MoveToFirst();
+      //LOGDF("Read: data full, leave: %d Clock: %f", destLeaveSamples, currentAudioClock);
       return true;
     }
+    else {
+      audioOutLeave->Reset();
+    }
 
+    //请求帧
     AVFrame* frame = externalData->DecodeQueue->AudioFrameDequeue();
     if (frame == nullptr) {
-      *sample = 0;
+      LOGD("Empty audio frame");
       return false;
     }
 
@@ -366,7 +392,7 @@ bool CCPlayerRender::RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample)
     curAudioPts = frame->pts;
 
     {
-      destDataSamples = swr_convert(
+      int destDataSamples = swr_convert(
         swrContext,
         audioOutBuffer,
         destNbSample,
@@ -375,31 +401,31 @@ bool CCPlayerRender::RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample)
       );
 
       if (destDataSamples > 0) {
-        *sample = min(destDataSamples, maxSample);
-        if (destDataSamples > maxSample) {
-          destLeaveSamples = destDataSamples - maxSample;
-          destDataOffset = destDataSizeOne * destLeaveSamples;
+
+        //拷贝新的数据
+        auto writeSize = min((int)destDataSamples, (int)sample - copyedSamples) * destDataSizeOne;
+        buffer.Append(audioOutBuffer[0], writeSize);
+        destLeaveSamples = max(0, destDataSamples - (sample - copyedSamples));
+
+        if (destLeaveSamples > 0) {
+          //ffmpeg一帧解码出的数据可能大于缓冲区大小，先保存多出数据下次一起拷贝
+          audioOutLeave->AppendNoIncrease(audioOutBuffer[0] + writeSize, destDataSize - writeSize);
         }
-        else {
-          destLeaveSamples = 0;
-          destDataOffset = 0;
-        }
+
+        //LOGDF("Read: %d/%d get: %d leave: %d Clock: %f", frame->nb_samples, destDataSamples, sample, destLeaveSamples, currentAudioClock);
 
         //pts时间+当前帧播放需要的时间
         currentAudioClock += destDataSamples / ((double)(audioDeviceDefaultFormatInfo.sampleRate * destChannels));
+
+#if _DEBUG
+        fwrite(buffer.FirstData(), 1, buffer.GetFilledSize(), out_file);
+#endif
       }
     }
 
     externalData->DecodeQueue->ReleaseFrame(frame);
   }
-  return true;
-}
-bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample) 
-{
-  if (buf) {
-    memcpy_s(buf, buf_len, (void*)(audioOutBuffer[0] + destDataOffset), min(buf_len, (DWORD)destLinesize));
-    fwrite((void*)(audioOutBuffer[0] + destDataOffset), destDataSizePerSample * 2, sample, out_file);
-  }
+
   return true;
 }
 

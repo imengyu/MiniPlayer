@@ -85,9 +85,9 @@ UINT32 CSoundDevice::GetPosition()
 
 CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
 {
-  CoInitializeEx(0, 0);
-
   if (deviceDefaultFormatInfo.sampleRate == 0) {
+    CoInitializeEx(0, 0);
+
     IMMDeviceEnumerator* pEnumerator = NULL;
     IMMDevice* pDevice = NULL;
     IAudioClient* pAudioClient = NULL;

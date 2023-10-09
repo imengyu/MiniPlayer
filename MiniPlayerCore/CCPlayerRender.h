@@ -13,6 +13,7 @@ extern "C" {
 }
 #include "CCPlayerDefine.h"
 #include "CSoundDevice.h"
+#include "CAppendBuffer.h"
 
 class CCVideoDevice;
 class CCVideoPlayerExternalData;
@@ -55,16 +56,15 @@ private:
   int64_t curAudioDts = 0;	//记录当前播放的音频流Packet的DTS
   int64_t curAudioPts = 0;	//记录当前播放的音频流Packet的DTS
 
-  // 输出缓冲
-  uint8_t** audioOutBuffer = nullptr;
+
+  uint8_t** audioOutBuffer = nullptr; // 输出缓冲
+  CAppendBuffer* audioOutLeave; // 输出遗留缓冲
   size_t destDataSize = 0;
-  size_t destDataSizeOne = 0;
-  uint32_t destNbSample = 0;
+  size_t destDataSizeOne = 0;//一个采样的数据大小（当前通道）
+  uint32_t destNbSample = 0;//aac大小
   int destLinesize = 0;
-  uint32_t destDataSizePerSample = 0;
-  uint32_t destDataSamples = 0;
-  uint32_t destDataOffset = 0;
-  uint32_t destLeaveSamples = 0;
+  uint32_t destDataSizePerSample = 0;//一个采样的数据大小（单通道）
+  uint32_t destLeaveSamples = 0;//拷贝剩余采样数量
   int destChannels = 0;
 
   //时钟

@@ -60,8 +60,6 @@ void CCVideoPlayer::DoCloseVideo() {
 }
 void CCVideoPlayer::DoSeekVideo() {
 
-  if (decodeState == CCDecodeState::DecodingToSeekPos) return;
-
   //先停止序列
   StopDecoderThread();
   render->Stop();
@@ -208,7 +206,7 @@ int64_t CCVideoPlayer::GetVideoLength() {
     LOGE("Video not open");
     return 0;
   }
-  return formatContext->duration / AV_TIME_BASE * 1000; //ms
+  return (int64_t)(formatContext->duration / (double)AV_TIME_BASE * (double)1000); //ms
 }
 void CCVideoPlayer::SetVideoVolume(int vol) { render->SetVolume(vol); }
 int CCVideoPlayer::GetVideoVolume() { return render->GetVolume(); }
@@ -282,6 +280,14 @@ bool CCVideoPlayer::InitDecoder() {
   //找到"视频流".AVFormatContext 结构体中的nb_streams字段存储的就是当前视频文件中所包含的总数据流数量——
   //视频流，音频流
   //***********************************
+
+  for (uint32_t i = 0; i < formatContext->nb_streams; i++) {
+    if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+      LOGDF("video stream : %d", i);
+    } else if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+      LOGDF("audio stream : %d", i);
+    }
+  }
 
   for (uint32_t i = 0; i < formatContext->nb_streams; i++) {
     if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
@@ -422,7 +428,7 @@ bool CCVideoPlayer::DestroyDecoder() {
 
 void CCVideoPlayer::StartDecoderThread(bool isStartBySeek) {
 
-  decodeState = isStartBySeek ? CCDecodeState::DecodingToSeekPos : CCDecodeState::Decoding;
+  decodeState = CCDecodeState::Decoding;
 
   if (decoderWorkerThread == nullptr) {
     decoderWorkerThread = new std::thread(DecoderWorkerThreadStub, this);
@@ -500,8 +506,9 @@ void* CCVideoPlayer::PlayerWorkerThread() {
     }
     if (playerSeeking != 2 && decoderVideoFinish && decoderAudioFinish &&
       (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished)) {
-      int64_t pos = GetVideoPos();
-      if (pos >= GetVideoLength() - 1000 || pos == -1) {
+      auto pos = GetVideoPos();
+      auto dur = GetVideoLength();
+      if (pos >= dur - 30 || pos == -1) {
 
         decodeQueue.ClearAll();//清空数据
         StopAll();
@@ -510,7 +517,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
         videoState = CCVideoState::Ended;
 
         CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
-        LOGI("decodeState -> Finished");
+        LOGIF("decodeState -> Finished pos: %d dur: %d", pos, dur);
       }
     }
 
@@ -523,22 +530,21 @@ void* CCVideoPlayer::PlayerWorkerThread() {
 void* CCVideoPlayer::DecoderWorkerThread() {
   //读取线程，解复用线程
   int ret;
+  int start = 100;
   LOGIF("DecoderWorkerThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
-  while (decodeState == CCDecodeState::Decoding || decodeState == CCDecodeState::DecodingToSeekPos) {
+  while (decodeState == CCDecodeState::Decoding) {
 
-    auto maxMaxRenderQueueSize = (decodeState == CCDecodeState::DecodingToSeekPos ? 15 : InitParams.MaxRenderQueueSize);
-    if (decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize && decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize) {
-      av_usleep(1000 * 20);
-      if (decodeState == CCDecodeState::DecodingToSeekPos) {
-        return nullptr;
-      }
-      else {
-        continue;
-      }
+    auto maxMaxRenderQueueSize =  InitParams.MaxRenderQueueSize;
+    if (decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize || decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize) {
+      av_usleep(10000);
+      continue;
+    }
+    else if (start <= 0) {
+      av_usleep(100);
     }
     else {
-      av_usleep(1000);
+      start--;
     }
 
     AVPacket* avPacket = decodeQueue.RequestPacket();
@@ -556,8 +562,10 @@ void* CCVideoPlayer::DecoderWorkerThread() {
     }
     else if (ret == AVERROR_EOF) {
       //读取完成，但是可能还没有播放完成
-      if (decodeQueue.AudioQueueSize() == 0
-        && decodeQueue.VideoQueueSize() == 0) {
+      if (
+        decodeQueue.AudioQueueSize() == 0
+        && decodeQueue.VideoQueueSize() == 0
+      ) {
         decodeQueue.ReleasePacket(avPacket);
         decodeState = CCDecodeState::Finish;
         break;
@@ -601,13 +609,8 @@ void* CCVideoPlayer::DecoderVideoThread() {
     }
 
     //延时
-    if (decodeQueue.VideoFrameQueueSize() >
-      (decodeState == CCDecodeState::DecodingToSeekPos ? 10u : 50u)) {
+    if (decodeQueue.VideoFrameQueueSize() > 50u) {
       av_usleep(1000 * 100);
-      if (decodeState == CCDecodeState::DecodingToSeekPos) {
-        decodeQueue.ReleasePacket(packet);
-        goto QUIT;
-      }
     }
 
     //把包丢给解码器
@@ -675,13 +678,8 @@ void* CCVideoPlayer::DecoderAudioThread() {
       continue;
     }
 
-    if (decodeQueue.AudioFrameQueueSize() >
-      (decodeState == CCDecodeState::DecodingToSeekPos ? 10u : 20u)) {
+    if (decodeQueue.AudioFrameQueueSize() > 20u) {
       av_usleep(1000 * 20);
-      if (decodeState == CCDecodeState::DecodingToSeekPos) {
-        decodeQueue.ReleasePacket(packet);
-        goto QUIT;
-      }
     }
 
     //把包丢给解码器

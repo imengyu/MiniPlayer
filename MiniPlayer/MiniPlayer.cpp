@@ -69,9 +69,11 @@ public:
 	bool openSuccess = false;
 };
 
-void DoPlayVideo(wchar_t* strFilename, int width, int height) {
+void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	PlayVideoData playData;
 	CCVideoPlayerInitParams params;
+	uint32_t _FPS_Timer = 0;
+	const uint32_t FPS = 1000 / fps;
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = width;
@@ -183,6 +185,12 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height) {
 			break;
 		}
 
+		//帧率限制
+		if (SDL_GetTicks() - _FPS_Timer < FPS) {
+			SDL_Delay(FPS - SDL_GetTicks() + _FPS_Timer);
+		}
+		_FPS_Timer = SDL_GetTicks();
+
 		player->SyncRender();
 
 		playData.rect.x = 0;
@@ -229,7 +237,7 @@ void DoReadVideo(wchar_t* strFilename) {
 		wprintf(L"GetVideoInfo Failed %s\n", info->lastError);
 	}
 
-	DoPlayVideo(strFilename, info->width, info->height);
+	DoPlayVideo(strFilename, info->width, info->height, (int)info->frameRate);
 	ReleaseVideoInfo(info);
 }
 
@@ -255,7 +263,7 @@ int main()
 	setlocale(LC_ALL, "chs");
 	wchar_t strFilename[MAX_PATH] = { 0 };
 	wcscpy_s(strFilename, L"D:\\2.mp4");
-	OPENFILENAME ofn = {0};
+	/*OPENFILENAME ofn = {0};
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();
 	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤  
@@ -270,7 +278,7 @@ int main()
 		wprintf(L"请选择一个文件\n");
 		system("PAUSE");
 		return 0;
-	}
+	}*/
 
 	if (
 		endWith(strFilename, L".mp3") == 1 ||
