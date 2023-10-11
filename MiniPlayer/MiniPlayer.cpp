@@ -78,7 +78,7 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = width;
 	params.DestHeight = height;
-	params.UseRenderCallback = true;
+	params.UseRenderCallback = false;
 	params.SyncRender = true;
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
@@ -111,22 +111,6 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 			break;
 		}
 		case PLAYER_EVENT_INIT_DECODER_DONE: {
-			break;
-		}
-		case PLAYER_EVENT_RENDER_DATA_CALLBACK: {
-			auto rdcData = (CCVideoPlayerCallbackDeviceData*)eventData;
-			switch (rdcData->type)
-			{
-			case PLAYER_EVENT_RDC_TYPE_RENDER:
-				SDL_UpdateYUVTexture (
-					playData->texture, 
-					NULL, 
-					rdcData->data[0], rdcData->linesize[0],
-					rdcData->data[1], rdcData->linesize[1],
-					rdcData->data[2], rdcData->linesize[2]
-				);
-				break;
-			}
 			break;
 		}
 		default:
@@ -193,7 +177,17 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		}
 		_FPS_Timer = SDL_GetTicks();
 
-		player->SyncRender();
+		auto rdcData = player->SyncRenderStart();
+
+		SDL_UpdateYUVTexture(
+			playData.texture,
+			NULL,
+			rdcData->data[0], rdcData->linesize[0],
+			rdcData->data[1], rdcData->linesize[1],
+			rdcData->data[2], rdcData->linesize[2]
+		);
+
+		player->SyncRenderEnd();
 
 		playData.rect.x = 0;
 		playData.rect.y = 0;

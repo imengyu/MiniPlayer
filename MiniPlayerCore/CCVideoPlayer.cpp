@@ -573,7 +573,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
     else if (ret == AVERROR_EOF) {
       decodeQueue.ReleasePacket(avPacket);
 
-      //读取完成，但是可能还没有播放完成
+      //读取完成，但是可能还没有播放完成，等待播放完成后再执行操作
       if (
         decodeQueue.VideoFrameQueueSize() == 0 && 
         decodeQueue.AudioFrameQueueSize() == 0
@@ -594,6 +594,8 @@ void* CCVideoPlayer::DecoderWorkerThread() {
           break;
         }
       }
+
+      av_usleep(100);
     }
     else {
       LOGEF("DecoderWorkerThread : av_read_frame failed : %d", ret);
@@ -748,9 +750,18 @@ QUIT:
 
 //同步渲染
 
-void CCVideoPlayer::SyncRender()
+CCVideoPlayerCallbackDeviceData* CCVideoPlayer::SyncRenderStart()
 {
-  return render->SyncRender();
+  return render->SyncRenderStart();
+}
+void CCVideoPlayer::SyncRenderEnd() {
+  return render->SyncRenderEnd();
+}
+
+//更新画面缓冲区大小
+void CCVideoPlayer::RenderUpdateDestSize(int width, int height) {
+  externalData.InitParams->DestWidth = width;
+  externalData.InitParams->DestHeight = height;
 }
 
 CCVideoPlayer::CCVideoPlayer() {

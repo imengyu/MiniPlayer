@@ -36,7 +36,8 @@ public:
   virtual void SetVolume(int i);
   virtual int GetVolume() { return 0; }
 
-  virtual void SyncRender();
+  virtual CCVideoPlayerCallbackDeviceData* SyncRenderStart();
+  virtual void SyncRenderEnd();
 
   bool GetShouldReSample() { return false; }
   void SetLastError(int code, const wchar_t* errmsg);
@@ -77,12 +78,15 @@ private:
 
   CCVideoPlayerExternalData* externalData;
 
+  CCVideoPlayerCallbackDeviceData syncRenderData;
+
   CCRenderState status = CCRenderState::NotRender;
   bool currentSeekToPosFinished = false;
 
   CSoundDevice* audioDevice = nullptr;
   CCVideoDevice* videoDevice = nullptr;
 
+  AVFrame* currentFrame = nullptr;
   AVFrame* outFrame = nullptr;
   uint8_t* outFrameBuffer = nullptr;
   size_t outFrameBufferSize = 0;
@@ -95,11 +99,9 @@ private:
 
   static void* RenderVideoThreadStub(void* param);
   void* RenderVideoThread();
-  bool RenderVideoThreadWorker();
+  bool RenderVideoThreadWorker(bool sync);
 
-  static bool RenderAudioRequestFrameSizeStub(CSoundDeviceHoster* instance, DWORD maxSample, DWORD *sample);
   static bool RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
-  bool RenderAudioRequestFrameSize(DWORD maxSample, DWORD* sample);
   bool RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample);
 
   FILE* out_file;

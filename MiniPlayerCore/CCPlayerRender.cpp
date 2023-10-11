@@ -207,18 +207,25 @@ CSoundDevice* CCPlayerRender::CreateAudioDevice(CCVideoPlayerExternalData* data)
   return device;
 }
 
-void CCPlayerRender::SyncRender()
+CCVideoPlayerCallbackDeviceData* CCPlayerRender::SyncRenderStart()
 {
-  RenderVideoThreadWorker();
+  RenderVideoThreadWorker(true);
+  return &syncRenderData;
+}
+void CCPlayerRender::SyncRenderEnd() {
+  if (currentFrame) {
+    av_frame_unref(outFrame);
+    externalData->DecodeQueue->ReleaseFrame(currentFrame);
+  }
 }
 
-bool CCPlayerRender::RenderVideoThreadWorker() {
+bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   if (outFrame == nullptr 
     || outFrameDestFormat != externalData->InitParams->DestFormat
     || outFrameDestWidth != externalData->InitParams->DestWidth
     || outFrameDestHeight != externalData->InitParams->DestHeight
-    ) {
-
+    ) 
+  {
     if (outFrame != nullptr)
       av_frame_free(&outFrame);
 
@@ -232,9 +239,9 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
   }
 
   double frame_delays = 1.0 / externalData->CurrentFps;
-  AVFrame* frame = externalData->DecodeQueue->VideoFrameDequeue();
+  currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
 
-  if (frame == nullptr) {
+  if (currentFrame == nullptr) {
     av_usleep((int64_t)(100000));
     LOGD("Empty video frame");
     return true;
@@ -242,16 +249,16 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
 
   //时钟
   AVRational time_base = externalData->VideoTimeBase;
-  if (frame->best_effort_timestamp == AV_NOPTS_VALUE)
-    currentVideoClock = frame->pts * av_q2d(time_base);
+  if (currentFrame->best_effort_timestamp == AV_NOPTS_VALUE)
+    currentVideoClock = currentFrame->pts * av_q2d(time_base);
   else
-    currentVideoClock = frame->best_effort_timestamp * av_q2d(time_base);
+    currentVideoClock = currentFrame->best_effort_timestamp * av_q2d(time_base);
 
-  curVideoDts = frame->pkt_dts;
-  curVideoPts = frame->pts;
+  curVideoDts = currentFrame->pkt_dts;
+  curVideoPts = currentFrame->pts;
 
   //延迟计算
-  double extra_delay = frame->repeat_pict / (2 * externalData->CurrentFps);
+  double extra_delay = currentFrame->repeat_pict / (2 * externalData->CurrentFps);
   double delays = extra_delay + frame_delays;
 
   //与音频同步
@@ -270,7 +277,7 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
       }
       else {
         if (diff >= 0.55) {
-          externalData->DecodeQueue->ReleaseFrame(frame);
+          externalData->DecodeQueue->ReleaseFrame(currentFrame);
           int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
           //LOGDF("Sync: drop video pack: %d", count);
           return true;
@@ -286,42 +293,47 @@ bool CCPlayerRender::RenderVideoThreadWorker() {
     }
   }
 
-  {
-    memset(outFrameBuffer, 0, outFrameBufferSize);
+  memset(outFrameBuffer, 0, outFrameBufferSize);
 
-    //更具指定的数据初始化/填充缓冲区
-    av_image_fill_arrays(
-      outFrame->data,
-      outFrame->linesize,
-      outFrameBuffer,
-      outFrameDestFormat,
-      outFrameDestWidth,
-      outFrameDestHeight,
-      1
-    );
-    //转码
-    sws_scale(
-      swsContext,
-      (const uint8_t* const*)frame->data,
-      frame->linesize,
-      0,
-      frame->height,
-      outFrame->data,
-      outFrame->linesize
-    );
+  //更具指定的数据初始化/填充缓冲区
+  av_image_fill_arrays(
+    outFrame->data,
+    outFrame->linesize,
+    outFrameBuffer,
+    outFrameDestFormat,
+    outFrameDestWidth,
+    outFrameDestHeight,
+    1
+  );
+  //转码
+  sws_scale(
+    swsContext,
+    (const uint8_t* const*)currentFrame->data,
+    currentFrame->linesize,
+    0,
+    currentFrame->height,
+    outFrame->data,
+    outFrame->linesize
+  );
 
-    videoDevice->Render(outFrame, curVideoPts);
-
-    av_frame_unref(outFrame);
+  if (sync) {
+    syncRenderData.data = outFrame->data;
+    syncRenderData.linesize = outFrame->linesize;
+    syncRenderData.pts = curVideoPts;
+    syncRenderData.type = PLAYER_EVENT_RDC_TYPE_RENDER;
   }
+  else {
+    videoDevice->Render(outFrame, curVideoPts);
+    av_frame_unref(outFrame);
 
-  externalData->DecodeQueue->ReleaseFrame(frame);
+    externalData->DecodeQueue->ReleaseFrame(currentFrame);
 
-  if (status == CCRenderState::RenderingToSeekPos) {
-    curAudioPts = curVideoPts;
-    currentSeekToPosFinished = true;
-    LOGD("RenderVideoThread SeekToPosFinished");
-    return false;
+    if (status == CCRenderState::RenderingToSeekPos) {
+      curAudioPts = curVideoPts;
+      currentSeekToPosFinished = true;
+      LOGD("RenderVideoThread SeekToPosFinished");
+      return false;
+    }
   }
 
   return true;
@@ -335,7 +347,7 @@ void* CCPlayerRender::RenderVideoThread() {
   LOGDF("RenderVideoThread Start [%s]", CCRenderStateToString(status));
 
   while (status == CCRenderState::Rendering || status == CCRenderState::RenderingToSeekPos) {
-    if (!RenderVideoThreadWorker())
+    if (!RenderVideoThreadWorker(false))
       break;
   }
 

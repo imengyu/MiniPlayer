@@ -237,9 +237,17 @@ public:
 
   /*
   * 手动触发同步渲染，仅在 CCVideoPlayerInitParams.SyncRender = true 时有效。
-  * 同步渲染触发后，回调事件 PLAYER_EVENT_RENDER_DATA_CALLBACK 与当前调用处于同一个线程。
   */
-  virtual void SyncRender() {}
+  virtual CCVideoPlayerCallbackDeviceData* SyncRenderStart() { return nullptr; }
+  /*
+  * 同步渲染结束
+  */
+  virtual void SyncRenderEnd() {}
+
+  /*
+  * 渲染器更新输出缓冲区大小
+  */
+  virtual void RenderUpdateDestSize(int width, int height) {}
 
   //错误处理
   //**********************

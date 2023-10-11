@@ -61,15 +61,19 @@ public:
     //错误处理
     //**********************
 
-    void SetLastError(int code, const wchar_t* errmsg);
-    void SetLastError(int code, const char* errmsg);
     const wchar_t* GetLastErrorMessage();
     int GetLastError() const;
+
+    void SetLastError(int code, const wchar_t* errmsg);
+    void SetLastError(int code, const char* errmsg);
 
     void CallPlayerEventCallback(int message, void* data);
     void CallPlayerEventCallback(int message);
 
-    void SyncRender();
+    CCVideoPlayerCallbackDeviceData* SyncRenderStart(); 
+    void SyncRenderEnd();
+
+    void RenderUpdateDestSize(int width, int height);
 protected:
 
     int lastErrorCode = 0;
