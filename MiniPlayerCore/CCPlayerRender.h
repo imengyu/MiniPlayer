@@ -27,6 +27,7 @@ public:
 
   virtual CCVideoDevice* GetVideoDevice() { return videoDevice; }
   virtual CSoundDevice* GetAudioDevice() { return audioDevice; }
+  virtual CCRenderState GetState() { return status; }
 
   virtual int64_t GetCurVideoDts() { return curVideoDts; }
   virtual int64_t GetCurVideoPts() { return curVideoPts; }

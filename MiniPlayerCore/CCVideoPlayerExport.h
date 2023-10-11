@@ -12,6 +12,7 @@
 #define VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM    31 //当前文件无视频通道
 #define VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT  32 //视频格式不支持
 #define VIDEO_PLAYER_ERROR_NOR_INIT           33 //播放器未初始化
+#define VIDEO_PLAYER_ERROR_RENDER_NOT_START   34 //渲染器还未开始，无法调用此方法
 
 //播放器事件
 //***************************************
@@ -112,6 +113,13 @@ typedef void (*CCVideoPlayerEventCallback)(CCVideoPlayerAbstract* player, int me
 class CCVideoPlayerCallbackDeviceData {
 public:
   int type;
+  int width;
+  int height;
+  int crop_bottom;
+  int crop_left;
+  int crop_top;
+  int crop_right;
+  int64_t datasize;
   uint8_t** data;
   int* linesize;
   int64_t pts;

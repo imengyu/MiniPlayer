@@ -752,10 +752,18 @@ QUIT:
 
 CCVideoPlayerCallbackDeviceData* CCVideoPlayer::SyncRenderStart()
 {
+  if (render->GetState() == CCRenderState::NotRender) {
+    SetLastError(VIDEO_PLAYER_ERROR_RENDER_NOT_START, "Can not call SyncRenderStart when render not start");
+    return nullptr;
+  }
   return render->SyncRenderStart();
 }
 void CCVideoPlayer::SyncRenderEnd() {
-  return render->SyncRenderEnd();
+  if (render->GetState() == CCRenderState::NotRender) {
+    SetLastError(VIDEO_PLAYER_ERROR_RENDER_NOT_START, "Can not call SyncRenderEnd when render not start");
+    return;
+  }
+  render->SyncRenderEnd();
 }
 
 //更新画面缓冲区大小
