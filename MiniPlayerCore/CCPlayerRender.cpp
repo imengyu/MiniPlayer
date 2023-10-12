@@ -281,8 +281,9 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
       else {
         if (diff >= 0.55) {
           externalData->DecodeQueue->ReleaseFrame(currentFrame);
+          currentFrame = nullptr;
           int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
-          //LOGDF("Sync: drop video pack: %d", count);
+          LOGDF("Sync: drop video pack: %d", count);
           return true;
         }
         else {
@@ -290,7 +291,7 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
         }
       }
     }
-    else {
+    else if (!sync) {
       //正常播放
       av_usleep((uint32_t)(delays * 1000000));
     }
@@ -322,15 +323,15 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   if (sync) {
     syncRenderData.data = outFrame->data;
     syncRenderData.linesize = outFrame->linesize;
-    syncRenderData.width = outFrame->width;
-    syncRenderData.height = outFrame->height;
-    syncRenderData.crop_bottom = outFrame->crop_bottom;
-    syncRenderData.crop_left = outFrame->crop_left;
-    syncRenderData.crop_right = outFrame->crop_right;
-    syncRenderData.crop_top = outFrame->crop_top;
+    syncRenderData.width = currentFrame->width;
+    syncRenderData.height = currentFrame->height;
+    syncRenderData.crop_bottom = currentFrame->crop_bottom;
+    syncRenderData.crop_left = currentFrame->crop_left;
+    syncRenderData.crop_right = currentFrame->crop_right;
+    syncRenderData.crop_top = currentFrame->crop_top;
     syncRenderData.pts = curVideoPts;
     syncRenderData.type = PLAYER_EVENT_RDC_TYPE_RENDER;
-    syncRenderData.datasize = av_image_get_buffer_size((AVPixelFormat)externalData->InitParams->DestFormat, outFrame->width, outFrame->height, 0);
+    syncRenderData.datasize = av_image_get_buffer_size((AVPixelFormat)externalData->InitParams->DestFormat, currentFrame->width, currentFrame->height, 1);
   }
   else {
     videoDevice->Render(outFrame, curVideoPts);
