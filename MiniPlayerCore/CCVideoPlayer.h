@@ -116,7 +116,7 @@ protected:
 private:
     //线程控制
 
-    void StartDecoderThread(bool isStartBySeek = false);
+    void StartDecoderThread();
     void StopDecoderThread();
 
     bool playerWorking = false;
@@ -132,6 +132,10 @@ private:
     static void* DecoderWorkerThreadStub(void*param);
     static void* DecoderVideoThreadStub(void *param);
     static void* DecoderAudioThreadStub(void *param);
+
+    std::mutex decoderWorkerThreadLock;
+    std::mutex decoderVideoThreadLock;
+    std::mutex decoderAudioThreadLock;
 
     void* PlayerWorkerThread();
     void* DecoderWorkerThread();

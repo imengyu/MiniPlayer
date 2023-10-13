@@ -38,7 +38,6 @@ const char* CCDecodeStateToString(CCDecodeState state);
 enum class CCRenderState {
   NotRender = 0,
   Rendering = 1,
-  RenderingToSeekPos = 2,
 };
 
 const char* CCRenderStateToString(CCRenderState state);

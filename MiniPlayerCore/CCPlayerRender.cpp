@@ -165,12 +165,13 @@ void CCPlayerRender::Stop() {
     videoDevice->Pause();
   }
 }
-void CCPlayerRender::Start(bool isStartBySeek) {
+void CCPlayerRender::Start() {
 
-  status = isStartBySeek ? CCRenderState::RenderingToSeekPos : CCRenderState::Rendering;
+  status = CCRenderState::Rendering;
 
-  if (!isStartBySeek)
-    audioDevice->Start();
+  audioDevice->Start();
+  audioDevice->SetVolume(-1, currentVolume / 100.0f);
+
   videoDevice->Reusme();
 
   if (!externalData->InitParams->SyncRender && !renderVideoThread) {
@@ -189,6 +190,7 @@ void CCPlayerRender::Reset() {
 }
 
 void CCPlayerRender::SetVolume(int vol) {
+  currentVolume = vol;
   if (audioDevice)
     audioDevice->SetVolume(-1, vol / 100.0f);
 }
@@ -211,7 +213,8 @@ CCVideoPlayerCallbackDeviceData* CCPlayerRender::SyncRenderStart()
 {
   if (currentFrame)
     return nullptr;
-  RenderVideoThreadWorker(true);
+  if (!RenderVideoThreadWorker(true))
+    memset(&syncRenderData, 0, sizeof(syncRenderData));
   return &syncRenderData;
 }
 void CCPlayerRender::SyncRenderEnd() {
@@ -245,9 +248,10 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
 
   if (currentFrame == nullptr) {
-    av_usleep((int64_t)(100000));
+    if (!sync)
+      av_usleep((int64_t)(100000));
     LOGD("Empty video frame");
-    return true;
+    return false;
   }
 
   //时钟
@@ -263,38 +267,36 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   //延迟计算
   double extra_delay = currentFrame->repeat_pict / (2 * externalData->CurrentFps);
   double delays = extra_delay + frame_delays;
-
+  
   //与音频同步
-  if (status != CCRenderState::RenderingToSeekPos) {
-    if (externalData->AudioCodecContext != nullptr) {
-      //音频与视频的时间差
-      double diff = fabs(currentVideoClock - currentAudioClock);
-      //LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
-      if (currentVideoClock > currentAudioClock) {
-        if (diff > 1) {
-          av_usleep((uint32_t)((delays * 2) * 1000000));
-        }
-        else {
-          av_usleep((uint32_t)((delays + diff) * 1000000));
-        }
+  if (externalData->AudioCodecContext != nullptr && externalData->InitParams->SyncVideoAndAudio) {
+    //音频与视频的时间差
+    double diff = fabs(currentVideoClock - currentAudioClock);
+    //LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
+    if (currentVideoClock > currentAudioClock) {
+      if (diff > 1) {
+        av_usleep((uint32_t)((delays * 2) * 1000000));
       }
       else {
-        if (diff >= 0.55) {
-          externalData->DecodeQueue->ReleaseFrame(currentFrame);
-          currentFrame = nullptr;
-          int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
-          LOGDF("Sync: drop video pack: %d", count);
-          return true;
-        }
-        else {
-          av_usleep((uint32_t)1000);
-        }
+        av_usleep((uint32_t)((delays + diff) * 1000000));
       }
     }
-    else if (!sync) {
-      //正常播放
-      av_usleep((uint32_t)(delays * 1000000));
+    else {
+      if (diff >= 0.55) {
+        externalData->DecodeQueue->ReleaseFrame(currentFrame);
+        currentFrame = nullptr;
+        int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
+        LOGDF("Sync: drop video pack: %d", count);
+        return false;
+      }
+      else {
+        av_usleep((uint32_t)1000);
+      }
     }
+  }
+  else if (!sync) {
+    //正常播放
+    av_usleep((uint32_t)(delays * 1000000));
   }
 
   memset(outFrameBuffer, 0, outFrameBufferSize);
@@ -338,13 +340,6 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     av_frame_unref(outFrame);
     externalData->DecodeQueue->ReleaseFrame(currentFrame);
     currentFrame = nullptr;
-
-    if (status == CCRenderState::RenderingToSeekPos) {
-      curAudioPts = curVideoPts;
-      currentSeekToPosFinished = true;
-      LOGD("RenderVideoThread SeekToPosFinished");
-      return false;
-    }
   }
 
   return true;
@@ -357,10 +352,8 @@ void* CCPlayerRender::RenderVideoThreadStub(void* param) {
 void* CCPlayerRender::RenderVideoThread() {
   LOGDF("RenderVideoThread Start [%s]", CCRenderStateToString(status));
 
-  while (status == CCRenderState::Rendering || status == CCRenderState::RenderingToSeekPos) {
-    if (!RenderVideoThreadWorker(false))
-      break;
-  }
+  while (status == CCRenderState::Rendering)
+    RenderVideoThreadWorker(false);
 
   LOGD("RenderVideoThread End");
   return nullptr;

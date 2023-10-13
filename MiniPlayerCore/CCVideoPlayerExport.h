@@ -49,15 +49,15 @@ public:
   /**
    * 同步队列最大大小
    */
-  size_t MaxRenderQueueSize = 60;
+  size_t MaxRenderQueueSize = 16;
   /**
    * 同步队列增长步长
    */
-  size_t PacketPoolSize = 100;
+  size_t PacketPoolSize = 32;
   /**
    * 同步队列增长步长
    */
-  size_t PacketPoolGrowStep = 10;
+  size_t PacketPoolGrowStep = 8;
 
   /**
    * 目标格式 (AVPixelFormat)
@@ -74,11 +74,15 @@ public:
   /*
   * 解码器帧缓冲池大小
   */
-  size_t FramePoolSize = 100;
+  size_t FramePoolSize = 32;
   /*
   * 解码器帧缓冲池增长步长
   */
-  size_t FramePoolGrowStep = 10;
+  size_t FramePoolGrowStep = 8;
+  /*
+  * 是否执行音视频同步
+  */
+  bool SyncVideoAndAudio = true;
   /*
    * 是否使用渲染数据回调
    */

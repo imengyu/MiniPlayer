@@ -49,8 +49,6 @@ const char* CCRenderStateToString(CCRenderState state) {
             return "NotRender";
         case CCRenderState::Rendering:
             return "Rendering";
-        case CCRenderState::RenderingToSeekPos:
-            return "RenderingToSeekPos";
     }
     return "";
 }

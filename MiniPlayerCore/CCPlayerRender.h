@@ -21,7 +21,7 @@ class CCPlayerRender : public CSoundDeviceHoster {
 public:
   virtual bool Init(CCVideoPlayerExternalData* data);
   virtual void Destroy();
-  virtual void Start(bool isStartBySeek);
+  virtual void Start();
   virtual void Reset();
   virtual void Stop();
 
@@ -58,6 +58,7 @@ private:
   int64_t curAudioDts = 0;	//记录当前播放的音频流Packet的DTS
   int64_t curAudioPts = 0;	//记录当前播放的音频流Packet的DTS
 
+  int currentVolume = 100;
 
   uint8_t** audioOutBuffer = nullptr; // 输出缓冲
   CAppendBuffer* audioOutLeave; // 输出遗留缓冲

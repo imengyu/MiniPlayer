@@ -60,14 +60,19 @@ void CCVideoPlayer::DoCloseVideo() {
 }
 void CCVideoPlayer::DoSeekVideo() {
 
-  //先停止序列
-  StopDecoderThread();
-  render->Stop();
+  if (videoState == CCVideoState::Playing) {
+    //先停止序列
+    StopDecoderThread();
+    render->Stop();
+  }
+
+  LOGDF("Seek to %d", seekDest);
 
   //跳转到指定帧
 
   int ret;
   {
+
     seekPosVideo = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[videoIndex]->time_base);
     if (seekPosVideo > render->GetCurVideoPts())
       ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_FRAME);
@@ -78,7 +83,8 @@ void CCVideoPlayer::DoSeekVideo() {
       playerSeeking = 0;
       return;
     }
-    avcodec_flush_buffers(videoCodecContext);//清空缓存数据
+
+    //avcodec_flush_buffers(videoCodecContext);//清空缓存数据
   }
 
   /*
@@ -96,19 +102,15 @@ void CCVideoPlayer::DoSeekVideo() {
   //清空队列中所有残留数据
   decodeQueue.ClearAll();
 
-  //启动线程
-  LOGD("Start all for seek");
-
   decoderAudioFinish = audioIndex == -1;
   decoderVideoFinish = false;
 
+
   if (videoState == CCVideoState::Playing) {
+    //启动线程
+    LOGD("Start all for seek");
     StartDecoderThread();
-    render->Start(false);
-  }
-  else {
-    StartDecoderThread(true);
-    render->Start(true);
+    render->Start();
   }
   playerSeeking = 0;
 }
@@ -127,6 +129,9 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     SetLastError(VIDEO_PLAYER_ERROR_ALREADY_OPEN, "A video has been opened. Please close it first");
     return false;
   }
+
+
+  LOGDF("OpenVideo : %s", currentFile);
 
   currentFile = filePath;
   videoState = CCVideoState::Loading;
@@ -167,7 +172,7 @@ void CCVideoPlayer::SetVideoState(CCVideoState newState) {
   case CCVideoState::Ended:
   case CCVideoState::Failed:
   case CCVideoState::Loading:
-    LOGEF("Bad state %d, this state can only get.", newState);
+    LOGEF("Bad state %s, this state can only get.", CCVideoStateToString(newState));
     SetLastError(VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET, "");
     return;
   }
@@ -232,7 +237,7 @@ void CCVideoPlayer::StartAll() {
   decoderAudioFinish = audioIndex == -1;
   decoderVideoFinish = false;
   StartDecoderThread();
-  render->Start(false);
+  render->Start();
 
   startAllLock.unlock();
 }
@@ -431,7 +436,8 @@ bool CCVideoPlayer::DestroyDecoder() {
 //解码器线程控制
 //**************************
 
-void CCVideoPlayer::StartDecoderThread(bool isStartBySeek) {
+void CCVideoPlayer::StartDecoderThread() {
+  LOGDF("StartDecoderThread");
 
   decodeState = CCDecodeState::Decoding;
 
@@ -449,18 +455,26 @@ void CCVideoPlayer::StartDecoderThread(bool isStartBySeek) {
   }
 }
 void CCVideoPlayer::StopDecoderThread() {
+  LOGD("StopDecoderThread");
+
   decodeState = CCDecodeState::Ready;
   if (decoderWorkerThread) {
     delete decoderWorkerThread;
     decoderWorkerThread = nullptr;
+    decoderWorkerThreadLock.lock();
+    decoderWorkerThreadLock.unlock();
   }
   if (decoderVideoThread) {
     delete decoderVideoThread;
     decoderVideoThread = nullptr;
+    decoderVideoThreadLock.lock();
+    decoderVideoThreadLock.unlock();
   }
   if (decoderAudioThread) {
     delete decoderAudioThread;
     decoderAudioThread = nullptr;
+    decoderAudioThreadLock.lock();
+    decoderAudioThreadLock.unlock();
   }
 }
 
@@ -539,12 +553,17 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   bool seeked = false;
   LOGIF("DecoderWorkerThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
+  if (!decoderWorkerThreadLock.try_lock()) {
+    LOGI("DecoderWorkerThread : Start twice");
+    return nullptr;
+  }
+
   while (decodeState == CCDecodeState::Decoding) {
 
     auto maxMaxRenderQueueSize =  InitParams.MaxRenderQueueSize;
     if (
-      decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize 
-      || decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize
+      decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize || 
+      decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize
     ) {
       av_usleep(10000);
       continue;
@@ -606,11 +625,18 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   }
 
   LOGIF("DecoderWorkerThread : End [%s]", CCDecodeStateToString(decodeState));
+
+  decoderWorkerThreadLock.unlock();
   return nullptr;
 }
 void* CCVideoPlayer::DecoderVideoThread() {
   //视频解码线程
   LOGIF("DecoderVideoThread : Start: [%s]", CCDecodeStateToString(decodeState));
+
+  if (!decoderVideoThreadLock.try_lock()) {
+    LOGI("DecoderVideoThread : Start twice");
+    return nullptr;
+  }
 
   int ret;
   AVPacket* packet;
@@ -676,11 +702,18 @@ void* CCVideoPlayer::DecoderVideoThread() {
 
 QUIT:
   LOGIF("DecoderVideoThread : End [%s]", CCDecodeStateToString(decodeState));
+
+  decoderVideoThreadLock.unlock();
   return nullptr;
 }
 void* CCVideoPlayer::DecoderAudioThread() {
   //音频解码线程
   LOGIF("DecoderAudioThread : Start: [%s]", CCDecodeStateToString(decodeState));
+
+  if (!decoderAudioThreadLock.try_lock()) {
+    LOGI("DecoderAudioThread : Start twice");
+    return nullptr;
+  }
 
   int ret;
   AVPacket* packet;
@@ -745,6 +778,8 @@ void* CCVideoPlayer::DecoderAudioThread() {
 
 QUIT:
   LOGIF("DecoderAudioThread : End [%s]", CCDecodeStateToString(decodeState));
+
+  decoderAudioThreadLock.unlock();
   return nullptr;
 }
 
@@ -752,17 +787,13 @@ QUIT:
 
 CCVideoPlayerCallbackDeviceData* CCVideoPlayer::SyncRenderStart()
 {
-  if (render->GetState() == CCRenderState::NotRender) {
-    SetLastError(VIDEO_PLAYER_ERROR_RENDER_NOT_START, "Can not call SyncRenderStart when render not start");
+  if (render->GetState() == CCRenderState::NotRender)
     return nullptr;
-  }
   return render->SyncRenderStart();
 }
 void CCVideoPlayer::SyncRenderEnd() {
-  if (render->GetState() == CCRenderState::NotRender) {
-    SetLastError(VIDEO_PLAYER_ERROR_RENDER_NOT_START, "Can not call SyncRenderEnd when render not start");
+  if (render->GetState() == CCRenderState::NotRender)
     return;
-  }
   render->SyncRenderEnd();
 }
 
@@ -827,13 +858,13 @@ void CCVideoPlayer::FFmpegLogFunc(void* ptr, int level, const char* fmt, va_list
 
 void CCVideoPlayer::SetLastError(int code, const wchar_t* errmsg)
 {
-  LOGEF("CCVideoPlayer Error: %s", StringHelper::UnicodeToAnsi(errmsg).c_str());
+  LOGEF("CCVideoPlayer Error: %d, %s", code, StringHelper::UnicodeToAnsi(errmsg).c_str());
   lastErrorMessage = errmsg ? errmsg : L"";
   lastErrorCode = code;
 }
 void CCVideoPlayer::SetLastError(int code, const char* errmsg)
 {
-  LOGEF("CCVideoPlayer Error: %s", errmsg);
+  LOGEF("CCVideoPlayer Error: %d, %s", code, errmsg);
   lastErrorMessage = errmsg ? StringHelper::AnsiToUnicode(errmsg) : L"";
   lastErrorCode = code;
 }

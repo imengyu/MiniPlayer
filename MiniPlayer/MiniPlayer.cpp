@@ -178,14 +178,15 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		_FPS_Timer = SDL_GetTicks();
 
 		auto rdcData = player->SyncRenderStart();
-
-		SDL_UpdateYUVTexture(
-			playData.texture,
-			NULL,
-			rdcData->data[0], rdcData->linesize[0],
-			rdcData->data[1], rdcData->linesize[1],
-			rdcData->data[2], rdcData->linesize[2]
-		);
+		if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
+			SDL_UpdateYUVTexture(
+				playData.texture,
+				NULL,
+				rdcData->data[0], rdcData->linesize[0],
+				rdcData->data[1], rdcData->linesize[1],
+				rdcData->data[2], rdcData->linesize[2]
+			);
+		}
 
 		player->SyncRenderEnd();
 
