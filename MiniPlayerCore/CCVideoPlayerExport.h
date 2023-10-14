@@ -22,6 +22,7 @@
 #define PLAYER_EVENT_OPEN_FAIED           4 //文件打开失败
 #define PLAYER_EVENT_INIT_DECODER_DONE    5 //初始化解码器完成
 #define PLAYER_EVENT_RENDER_DATA_CALLBACK 6 //渲染回调，仅在 CCVideoPlayerInitParams.UseRenderCallback = true 时触发此事件。
+#define PLAYER_EVENT_SEEK_DONE            7 //跳帧完成
 
 //解码器状态值
 //***************************************
@@ -149,7 +150,7 @@ public:
   //**********************
 
   /*
-  * 打开文件
+  * 打开文件（异步）
   * 参数：
   *   * filePath：文件路径
   * 返回值：
@@ -157,7 +158,7 @@ public:
   */
   virtual bool OpenVideo(const char* filePath) { return false; }
   /*
-  * 打开文件
+  * 打开文件（异步）
   * 参数：
   *   * filePath：文件路径
   * 返回值：
@@ -165,11 +166,20 @@ public:
   */
   virtual bool OpenVideo(const wchar_t* filePath) { return false; }
   /*
-  * 关闭文件
+  * 关闭文件（异步）
   * 返回值：
   *   操作是否成功
   */
   virtual bool CloseVideo() { return false; }
+
+  /*
+  * 同步等待 OpenVideo 打开文件完成
+  */
+  virtual void WaitOpenVideo() {}
+  /*
+  * 同步等待 CloseVideo 关闭文件完成
+  */
+  virtual void WaitCloseVideo() {}
 
   /*
   * 设置播放器的状态，支持 暂停，继续，关闭

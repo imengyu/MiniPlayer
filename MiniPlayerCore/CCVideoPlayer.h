@@ -9,9 +9,10 @@
 #include "CCPlayerDefine.h"
 #include "CCDecodeQueue.h"
 #include "CCPlayerRender.h"
+#include "CCEvent.h"
 #include <thread>
 #include <mutex>
-
+#include <condition_variable>
 
 /**
  * 简单视频播放器
@@ -48,6 +49,9 @@ public:
     int64_t GetVideoPos();
     int GetVideoVolume();
     void GetVideoSize(int* w, int* h);
+
+    void WaitOpenVideo();
+    void WaitCloseVideo();
 
     //回调
     //**********************
@@ -127,6 +131,9 @@ private:
     std::thread* decoderAudioThread = nullptr;
     std::thread* decoderVideoThread = nullptr;
     std::thread* playerWorkerThread = nullptr;
+
+    CCEvent closeDoneEvent;
+    CCEvent openDoneEvent;
 
     static void* PlayerWorkerThreadStub(void*param);
     static void* DecoderWorkerThreadStub(void*param);

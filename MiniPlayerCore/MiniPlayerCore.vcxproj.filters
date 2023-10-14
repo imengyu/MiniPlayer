@@ -117,6 +117,9 @@
     <ClInclude Include="CAppendBuffer.h">
       <Filter>头文件\Helpers</Filter>
     </ClInclude>
+    <ClInclude Include="CCEvent.h">
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -183,6 +186,9 @@
       <Filter>源文件\Video</Filter>
     </ClCompile>
     <ClCompile Include="CAppendBuffer.cpp">
+      <Filter>源文件\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="CCEvent.cpp">
       <Filter>源文件\Helpers</Filter>
     </ClCompile>
   </ItemGroup>

@@ -83,8 +83,6 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
 
-	player->SetVideoLoop(true);
-
 	//播放器回调
 	player->SetPlayerEventCallback([] (CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
 		auto playData = (PlayVideoData*)(customData);
@@ -208,6 +206,7 @@ DESTROY:
 	if (player) {
 		if (!player->CloseVideo())
 			wprintf(L"CloseVideo failed: (%d) %s", player->GetLastError(), player->GetLastErrorMessage());
+		player->WaitCloseVideo();
 		DestroyVideoPlayer(player);
 	}
 	if (playData.texture)
@@ -289,6 +288,12 @@ int main()
 	else {
 		DoReadVideo(strFilename);
 	}
-	
+
+	wcscpy_s(strFilename, L"D:\\3.mp4");
+	DoReadVideo(strFilename);
+
+	wcscpy_s(strFilename, L"D:\\4.mp4");
+	DoReadVideo(strFilename);
+
 	return 0;
 }

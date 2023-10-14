@@ -42,20 +42,26 @@ void CCVideoPlayer::DoOpenVideo() {
   }
 
   videoState = CCVideoState::Opened;
+  openDoneEvent.NotifyOne();
   CallPlayerEventCallback(PLAYER_EVENT_OPEN_DONE);
 }
 void CCVideoPlayer::DoCloseVideo() {
   LOGD("DoCloseVideo");
 
-  //停止
-  StopAll();
+  if (videoState != CCVideoState::NotOpen) {
 
-  //释放
-  DestroyDecoder();
-  render->Destroy();
-  decodeQueue.Destroy();
+    //停止
+    StopAll();
 
-  videoState = CCVideoState::NotOpen;
+    //释放
+    DestroyDecoder();
+    render->Destroy();
+    decodeQueue.Destroy();
+
+    videoState = CCVideoState::NotOpen;
+    closeDoneEvent.NotifyOne();
+  }
+   
   CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
 }
 void CCVideoPlayer::DoSeekVideo() {
@@ -105,14 +111,15 @@ void CCVideoPlayer::DoSeekVideo() {
   decoderAudioFinish = audioIndex == -1;
   decoderVideoFinish = false;
 
-
   if (videoState == CCVideoState::Playing) {
     //启动线程
     LOGD("Start all for seek");
     StartDecoderThread();
     render->Start();
   }
+
   playerSeeking = 0;
+  CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
 }
 
 //播放器公共方法
@@ -136,6 +143,8 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
   currentFile = filePath;
   videoState = CCVideoState::Loading;
 
+  openDoneEvent.Reset();
+
   if (playerOpen == 0) {
     playerOpen = 1;
     return true;
@@ -151,11 +160,22 @@ bool CCVideoPlayer::CloseVideo() {
     LOGE("Can not close video because video not load");
     return false;
   }
+
+  closeDoneEvent.Reset();
+
   if (playerClose == 0) {
     playerClose = 1;
     return true;
   }
   return true;
+}
+void CCVideoPlayer::WaitOpenVideo() {
+  if (playerOpen)
+    openDoneEvent.Wait();
+}
+void CCVideoPlayer::WaitCloseVideo() {
+  if (playerClose)
+    closeDoneEvent.Wait();
 }
 void CCVideoPlayer::SetVideoState(CCVideoState newState) {
   if (videoState == newState)

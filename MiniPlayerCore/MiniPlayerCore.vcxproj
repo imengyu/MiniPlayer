@@ -180,6 +180,7 @@
     <ClInclude Include="CWavDecoder.h" />
     <ClInclude Include="CWmaDecoder.h" />
     <ClInclude Include="DbgHelper.h" />
+    <ClInclude Include="CCEvent.h" />
     <ClInclude Include="Export.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Logger.h" />
@@ -206,6 +207,7 @@
     <ClCompile Include="CWmaDecoder.cpp" />
     <ClCompile Include="DbgHelper.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="CCEvent.cpp" />
     <ClCompile Include="Export.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="pch.cpp">
