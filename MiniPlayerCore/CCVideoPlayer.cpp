@@ -586,7 +586,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
         DoSetVideoState(CCVideoState::Ended);
 
         CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
-        LOGIF("decodeState -> Finished pos: %d dur: %d", pos, dur);
+        LOGIF("PlayerWorkerThread: decodeState -> Finished pos: %d dur: %d", pos, dur);
       }
     }
 
