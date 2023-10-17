@@ -234,8 +234,6 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   {
     if (outFrame != nullptr)
       av_frame_free(&outFrame);
-    if (outFrameBuffer)
-      av_freep(outFrameBuffer);
 
     outFrameDestFormat = (AVPixelFormat)externalData->InitParams->DestFormat;
     outFrameDestWidth = externalData->InitParams->DestWidth;

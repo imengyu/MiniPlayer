@@ -144,6 +144,7 @@ private:
     std::mutex decoderVideoThreadLock;
     std::mutex decoderAudioThreadLock;
 
+
     void* PlayerWorkerThread();
     void* DecoderWorkerThread();
     void* DecoderVideoThread();
@@ -167,6 +168,10 @@ private:
     int64_t seekPosVideo = 0;
     int64_t seekPosAudio = 0;
 
+    std::mutex setVideoStateLock;
+
+
+    void DoSetVideoState(CCVideoState state);
     void DoOpenVideo();
     void DoCloseVideo();
     void DoSeekVideo();

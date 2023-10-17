@@ -21,32 +21,36 @@ int CCVideoPlayer::GetLastError() const { return lastErrorCode; }
 //**************************
 
 void CCVideoPlayer::DoOpenVideo() {
-  LOGD("DoOpenVideo");
+  LOGD("DoOpenVideo: Start");
 
-  videoState = CCVideoState::Loading;
+  DoSetVideoState(CCVideoState::Loading);
 
   if (!InitDecoder()) {
-    videoState = CCVideoState::Failed;
+    DoSetVideoState(CCVideoState::Failed);
     CallPlayerEventCallback(PLAYER_EVENT_OPEN_FAIED);
+    LOGD("DoOpenVideo: InitDecoder failed");
     return;
   }
 
   decodeQueue.Init(&externalData);
 
   CallPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
+  LOGD("DoOpenVideo: InitDecoder done");
 
   if (!render->Init(&externalData)) {
-    videoState = CCVideoState::Failed;
+    DoSetVideoState(CCVideoState::Failed);
     CallPlayerEventCallback(PLAYER_EVENT_OPEN_FAIED);
+    LOGD("DoOpenVideo: Init render failed");
     return;
   }
 
-  videoState = CCVideoState::Opened;
+  DoSetVideoState(CCVideoState::Opened);
+  LOGD("DoOpenVideo: Done");
   openDoneEvent.NotifyOne();
   CallPlayerEventCallback(PLAYER_EVENT_OPEN_DONE);
 }
 void CCVideoPlayer::DoCloseVideo() {
-  LOGD("DoCloseVideo");
+  LOGD("DoCloseVideo: Start");
 
   if (videoState != CCVideoState::NotOpen) {
 
@@ -58,21 +62,24 @@ void CCVideoPlayer::DoCloseVideo() {
     render->Destroy();
     decodeQueue.Destroy();
 
-    videoState = CCVideoState::NotOpen;
+    DoSetVideoState(CCVideoState::NotOpen);
     closeDoneEvent.NotifyOne();
   }
-   
+
   CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
+  LOGD("DoCloseVideo: Done");
 }
 void CCVideoPlayer::DoSeekVideo() {
 
   if (videoState == CCVideoState::Playing) {
+    LOGD("Seek: Stop before seek");
+
     //先停止序列
     StopDecoderThread();
     render->Stop();
   }
 
-  LOGDF("Seek to %d", seekDest);
+  LOGDF("Seek: Seek to %d", seekDest);
 
   //跳转到指定帧
 
@@ -113,19 +120,27 @@ void CCVideoPlayer::DoSeekVideo() {
 
   if (videoState == CCVideoState::Playing) {
     //启动线程
-    LOGD("Start all for seek");
+    LOGD("Seek: Start all for seek");
     StartDecoderThread();
     render->Start();
   }
 
   playerSeeking = 0;
   CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+  LOGD("Seek: Seek done");
+}
+void CCVideoPlayer::DoSetVideoState(CCVideoState state) {
+  setVideoStateLock.lock();
+  videoState = state;
+  setVideoStateLock.unlock();
 }
 
 //播放器公共方法
 //**************************
 
 bool CCVideoPlayer::OpenVideo(const char* filePath) {
+
+  LOGDF("OpenVideo: Call. %hs", StringHelper::Utf8ToUnicode(filePath).c_str());
 
   if (videoState == CCVideoState::Loading) {
     SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is loading, please wait a second");
@@ -137,11 +152,8 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     return false;
   }
 
-
-  LOGDF("OpenVideo : %s", currentFile);
-
   currentFile = filePath;
-  videoState = CCVideoState::Loading;
+  DoSetVideoState(CCVideoState::Loading);
 
   openDoneEvent.Reset();
 
@@ -155,6 +167,7 @@ bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
   return OpenVideo(StringHelper::UnicodeToUtf8(filePath).c_str());
 }
 bool CCVideoPlayer::CloseVideo() {
+  LOGD("CloseVideo: Call");
 
   if (videoState == CCVideoState::NotOpen || videoState == CCVideoState::Failed) {
     LOGE("Can not close video because video not load");
@@ -178,12 +191,21 @@ void CCVideoPlayer::WaitCloseVideo() {
     closeDoneEvent.Wait();
 }
 void CCVideoPlayer::SetVideoState(CCVideoState newState) {
+  if (setVideoStateLock.try_lock())
+    setVideoStateLock.unlock();
   if (videoState == newState)
     return;
+
+  LOGDF("SetVideoState : %s", CCVideoStateToString(newState));
 
   switch (newState) {
   case CCVideoState::NotOpen: CloseVideo(); break;
   case CCVideoState::Playing:
+    if (videoState == CCVideoState::Loading) {
+      LOGEF("Now player is loading");
+      SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
+      return;
+    }
     if (GetVideoPos() > GetVideoLength() - 500)
       SetVideoPos(0);
     StartAll();
@@ -197,13 +219,12 @@ void CCVideoPlayer::SetVideoState(CCVideoState newState) {
     return;
   }
 
-  LOGDF("SetVideoState : %s", CCVideoStateToString(newState));
 }
 void CCVideoPlayer::SetVideoPos(int64_t pos) {
   if (playerSeeking == 0) {
     playerSeeking = 1;
     seekDest = externalData.StartTime + pos;
-    LOGDF("SetVideoPos : %ld/%ld", seekDest, GetVideoLength());
+    LOGDF("SetVideoPos: Call. %ld/%ld", seekDest, GetVideoLength());
   }
 }
 int64_t CCVideoPlayer::GetVideoPos() {
@@ -225,7 +246,11 @@ int64_t CCVideoPlayer::GetVideoPos() {
     return (int64_t)(render->GetCurVideoPts() * av_q2d(formatContext->streams[videoIndex]->time_base) * 1000);
 }
 bool CCVideoPlayer::GetVideoLoop() { return loop; }
-CCVideoState CCVideoPlayer::GetVideoState() { return videoState; }
+CCVideoState CCVideoPlayer::GetVideoState() { 
+  if (setVideoStateLock.try_lock())
+    setVideoStateLock.unlock();
+  return videoState;
+}
 int64_t CCVideoPlayer::GetVideoLength() {
   if (!formatContext) {
     SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "Video not open");
@@ -250,7 +275,7 @@ void CCVideoPlayer::GetVideoSize(int* w, int* h) {
 void CCVideoPlayer::StartAll() {
   if (videoState == CCVideoState::Playing)
     return;
-  videoState = CCVideoState::Playing;
+  DoSetVideoState(CCVideoState::Playing);
 
   startAllLock.lock();
 
@@ -264,7 +289,7 @@ void CCVideoPlayer::StartAll() {
 void CCVideoPlayer::StopAll() {
   if (videoState == CCVideoState::Paused || videoState == CCVideoState::Ended)
     return;
-  videoState = CCVideoState::Paused;
+  DoSetVideoState(CCVideoState::Paused);
 
   stopAllLock.lock();
 
@@ -288,7 +313,7 @@ bool CCVideoPlayer::InitDecoder() {
   if (openState < 0) {
     char errBuf[128];
     if (av_strerror(openState, errBuf, sizeof(errBuf)) == 0) {
-      LOGEF("Failed to open input file, error : %s", errBuf);
+      LOGEF("InitDecoder: Failed to open input file, error : %s", errBuf);
       SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("Failed to open input file, error : %s", errBuf).c_str());
     }
     return false;
@@ -296,7 +321,7 @@ bool CCVideoPlayer::InitDecoder() {
   //为分配的AVFormatContext 结构体中填充数据
   if (avformat_find_stream_info(formatContext, nullptr) < 0) {
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "Failed to read the input video stream information");
-    LOGE("Failed to read the input video stream information");
+    LOGE("InitDecoder: Failed to read the input video stream information");
     return false;
   }
 
@@ -313,9 +338,9 @@ bool CCVideoPlayer::InitDecoder() {
 
   for (uint32_t i = 0; i < formatContext->nb_streams; i++) {
     if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-      LOGDF("video stream : %d", i);
+      LOGDF("InitDecoder: video stream : %d", i);
     } else if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-      LOGDF("audio stream : %d", i);
+      LOGDF("InitDecoder: audio stream : %d", i);
     }
   }
 
@@ -333,13 +358,13 @@ bool CCVideoPlayer::InitDecoder() {
   }
   if (videoIndex == -1) {
     SetLastError(VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM, "Not found video stream");
-    LOGE("Not found video stream!");
+    LOGE("InitDecoder: Not found video stream!");
     return false;
   }
 
-  LOGDF("formatContext->nb_streams : %d", formatContext->nb_streams);
-  LOGDF("audioIndex : %d", audioIndex);
-  LOGDF("videoIndex : %d", videoIndex);
+  LOGDF("InitDecoder: streams count : %d", formatContext->nb_streams);
+  LOGDF("InitDecoder: audioIndex : %d", audioIndex);
+  LOGDF("InitDecoder: videoIndex : %d", videoIndex);
 
   externalData.VideoTimeBase = formatContext->streams[videoIndex]->time_base;
   if (audioIndex != -1)
@@ -356,7 +381,7 @@ bool CCVideoPlayer::InitDecoder() {
   videoCodec = avcodec_find_decoder(codecParameters->codec_id);
 
   if (videoCodec == nullptr) {
-    LOGE("Not find video decoder");
+    LOGE("InitDecoder: Not find video decoder");
     SetLastError(VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT, "Not find video decoder");
     return false;
   }
@@ -364,7 +389,7 @@ bool CCVideoPlayer::InitDecoder() {
   //通过解码器分配(并用  默认值   初始化)一个解码器context
   videoCodecContext = avcodec_alloc_context3(videoCodec);
   if (videoCodecContext == nullptr) {
-    LOGE("avcodec_alloc_context3 for videoCodecContext failed");
+    LOGE("InitDecoder: avcodec_alloc_context3 for videoCodecContext failed");
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_alloc_context3 for videoCodecContext failed");
     return false;
   }
@@ -372,14 +397,14 @@ bool CCVideoPlayer::InitDecoder() {
   //更具指定的编码器值填充编码器上下文
   ret = avcodec_parameters_to_context(videoCodecContext, codecParameters);
   if (ret < 0) {
-    LOGEF("avcodec_parameters_to_context videoCodecContext failed : %d", ret);
+    LOGEF("InitDecoder: avcodec_parameters_to_context videoCodecContext failed : %d", ret);
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_to_context videoCodecContext failed : %d", ret).c_str());
     return false;
   }
   ret = avcodec_open2(videoCodecContext, videoCodec, nullptr);
   //通过所给的编解码器初始化编解码器上下文
   if (ret < 0) {
-    LOGEF("avcodec_open2 videoCodecContext failed : %d", ret);
+    LOGEF("InitDecoder: avcodec_open2 videoCodecContext failed : %d", ret);
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_open2 videoCodecContext failed : %d", ret).c_str());
     return false;
   }
@@ -392,7 +417,7 @@ bool CCVideoPlayer::InitDecoder() {
     codecParameters = formatContext->streams[audioIndex]->codecpar;
     audioCodec = avcodec_find_decoder(codecParameters->codec_id);
     if (audioCodec == nullptr) {
-      LOGW("Not find audio decoder");
+      LOGW("InitDecoder: Not find audio decoder");
       goto AUDIO_INIT_DONE;
     }
     //通过解码器分配(并用  默认值   初始化)一个解码器context
@@ -405,13 +430,13 @@ bool CCVideoPlayer::InitDecoder() {
     //更具指定的编码器值填充编码器上下文
     ret = avcodec_parameters_to_context(audioCodecContext, codecParameters);
     if (ret < 0) {
-      LOGWF("avcodec_parameters_to_context audioCodecContext failed : %d", ret);
+      LOGWF("InitDecoder: avcodec_parameters_to_context audioCodecContext failed : %d", ret);
       goto AUDIO_INIT_DONE;
     }
     ret = avcodec_open2(audioCodecContext, audioCodec, nullptr);
     //通过所给的编解码器初始化编解码器上下文
     if (ret < 0) {
-      LOGWF("avcodec_open2 audioCodecContext failed : %d", ret);
+      LOGWF("InitDecoder: avcodec_open2 audioCodecContext failed : %d", ret);
       goto AUDIO_INIT_DONE;
     }
 
@@ -419,8 +444,8 @@ bool CCVideoPlayer::InitDecoder() {
   else audioCodecContext = nullptr;
 AUDIO_INIT_DONE:
 
-  LOGDF("audioCodecContext->codec_id : %d", audioCodecContext ? audioCodecContext->codec_id : 0);
-  LOGDF("videoCodecContext->codec_id : %d", videoCodecContext->codec_id);
+  LOGDF("InitDecoder: audioCodecContext->codec_id : %d", audioCodecContext ? audioCodecContext->codec_id : 0);
+  LOGDF("InitDecoder: videoCodecContext->codec_id : %d", videoCodecContext->codec_id);
 
   externalData.StartTime = formatContext->start_time * 1000 / AV_TIME_BASE;
 
@@ -433,9 +458,11 @@ AUDIO_INIT_DONE:
 }
 bool CCVideoPlayer::DestroyDecoder() {
 
+  LOGE("DestroyDecoder: Start");
+
   if (decodeState < CCDecodeState::Ready) {
     SetLastError(VIDEO_PLAYER_ERROR_NOR_INIT, "Decoder not init");
-    LOGE("Decoder not init");
+    LOGE("DestroyDecoder: Decoder not init");
     return false;
   }
 
@@ -449,6 +476,7 @@ bool CCVideoPlayer::DestroyDecoder() {
   avformat_close_input(&formatContext);
   avformat_free_context(formatContext);
 
+  LOGE("DestroyDecoder: Done");
   decodeState = CCDecodeState::NotInit;
   return true;
 }
@@ -475,7 +503,7 @@ void CCVideoPlayer::StartDecoderThread() {
   }
 }
 void CCVideoPlayer::StopDecoderThread() {
-  LOGD("StopDecoderThread");
+  LOGD("StopDecoderThread: Start");
 
   decodeState = CCDecodeState::Ready;
   if (decoderWorkerThread) {
@@ -496,6 +524,8 @@ void CCVideoPlayer::StopDecoderThread() {
     decoderAudioThreadLock.lock();
     decoderAudioThreadLock.unlock();
   }
+
+  LOGD("StopDecoderThread: Done");
 }
 
 //线程入口包装函数
@@ -553,7 +583,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
         StopAll();
 
         decodeState = CCDecodeState::Finished;
-        videoState = CCVideoState::Ended;
+        DoSetVideoState(CCVideoState::Ended);
 
         CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
         LOGIF("decodeState -> Finished pos: %d dur: %d", pos, dur);

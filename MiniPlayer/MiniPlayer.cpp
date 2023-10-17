@@ -74,6 +74,7 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	CCVideoPlayerInitParams params;
 	uint32_t _FPS_Timer = 0;
 	const uint32_t FPS = 1000 / fps;
+	int count = 0;
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = width;
@@ -105,7 +106,6 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		}
 		case PLAYER_EVENT_PLAY_DONE: {
 			playData->openSuccess = false;
-			playData->quit = true;
 			break;
 		}
 		case PLAYER_EVENT_INIT_DECODER_DONE: {
@@ -122,6 +122,8 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		goto DESTROY;
 	}
 
+	player->WaitOpenVideo();
+
 	//初始化环境
 	SDL_Init(0);
 
@@ -132,7 +134,7 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		SDL_WINDOWPOS_CENTERED, 
 		params.DestWidth, 
 		params.DestHeight, 
-		SDL_WINDOW_SHOWN
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN
 	);
 	if (!playData.window)
 	{
@@ -157,6 +159,8 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		params.DestHeight
 	);
 
+REPLAY:
+
 	do
 	{
 		SDL_PollEvent(&playData.event);//轮训方式
@@ -165,6 +169,11 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		case SDL_QUIT:
 			playData.quit = true;
 			break;
+		case SDL_WINDOWEVENT:
+			if (playData.event.window.event == SDL_WINDOWEVENT_RESIZED)
+				player->RenderUpdateDestSize(playData.event.window.data1, playData.event.window.data2);
+			break;
+
 		default:
 			break;
 		}
@@ -196,8 +205,34 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
 		SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
 
-		if (player->GetVideoState() == CCVideoState::Ended)
-			playData.quit = true;
+		if (player->GetVideoState() == CCVideoState::Ended) {
+			count++;
+			if (count == 1) {
+				player->CloseVideo();
+				player->WaitCloseVideo();
+				wcscpy_s(strFilename, 260, L"D:\\3.mp4");
+				if (!player->OpenVideo(strFilename)) {
+					wprintf(L"OpenVideo failed: (%d) %s", player->GetLastError(), player->GetLastErrorMessage());
+					goto DESTROY;
+				}
+				player->WaitOpenVideo();
+				goto REPLAY;
+			}
+			else if (count == 2) {
+				player->CloseVideo();
+				player->WaitCloseVideo();
+				wcscpy_s(strFilename, 260, L"D:\\4.mp4");
+				if (!player->OpenVideo(strFilename)) {
+					wprintf(L"OpenVideo failed: (%d) %s", player->GetLastError(), player->GetLastErrorMessage());
+					goto DESTROY;
+				}
+				player->WaitOpenVideo();
+				goto REPLAY;
+			}
+			else {
+				playData.quit = true;
+			}
+		}
 
 	} while (!playData.quit);
 
@@ -288,12 +323,5 @@ int main()
 	else {
 		DoReadVideo(strFilename);
 	}
-
-	wcscpy_s(strFilename, L"D:\\3.mp4");
-	DoReadVideo(strFilename);
-
-	wcscpy_s(strFilename, L"D:\\4.mp4");
-	DoReadVideo(strFilename);
-
 	return 0;
 }
