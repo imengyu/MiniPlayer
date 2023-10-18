@@ -120,6 +120,12 @@
     <ClInclude Include="CCEvent.h">
       <Filter>头文件\Helpers</Filter>
     </ClInclude>
+    <ClInclude Include="CCSimpleStack.h">
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="CCSimpleQueue.h">
+      <Filter>头文件\Helpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -189,6 +195,12 @@
       <Filter>源文件\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="CCEvent.cpp">
+      <Filter>源文件\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="CCSimpleStack.cpp">
+      <Filter>源文件\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="CCSimpleQueue.cpp">
       <Filter>源文件\Helpers</Filter>
     </ClCompile>
   </ItemGroup>

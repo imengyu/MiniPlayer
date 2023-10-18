@@ -173,7 +173,15 @@ REPLAY:
 			if (playData.event.window.event == SDL_WINDOWEVENT_RESIZED)
 				player->RenderUpdateDestSize(playData.event.window.data1, playData.event.window.data2);
 			break;
-
+		case SDL_MOUSEBUTTONDOWN:
+			if (SDL_BUTTON_LEFT == playData.event.button.button)
+			{
+				if (player->GetVideoState() == CCVideoState::Playing)
+					player->SetVideoState(CCVideoState::Paused);
+				else if (player->GetVideoState() == CCVideoState::Paused)
+					player->SetVideoState(CCVideoState::Playing);
+			}
+			break;
 		default:
 			break;
 		}
@@ -184,26 +192,28 @@ REPLAY:
 		}
 		_FPS_Timer = SDL_GetTicks();
 
-		auto rdcData = player->SyncRenderStart();
-		if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
-			SDL_UpdateYUVTexture(
-				playData.texture,
-				NULL,
-				rdcData->data[0], rdcData->linesize[0],
-				rdcData->data[1], rdcData->linesize[1],
-				rdcData->data[2], rdcData->linesize[2]
-			);
+		//渲染
+		if (player->GetVideoState() == CCVideoState::Playing) {
+			auto rdcData = player->SyncRenderStart();
+			if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
+				SDL_UpdateYUVTexture(
+					playData.texture,
+					NULL,
+					rdcData->data[0], rdcData->linesize[0],
+					rdcData->data[1], rdcData->linesize[1],
+					rdcData->data[2], rdcData->linesize[2]
+				);
+			}
+			player->SyncRenderEnd();
+
+			playData.rect.x = 0;
+			playData.rect.y = 0;
+			playData.rect.w = params.DestWidth;
+			playData.rect.h = params.DestHeight;
+			SDL_RenderClear(playData.render);
+			SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
+			SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
 		}
-
-		player->SyncRenderEnd();
-
-		playData.rect.x = 0;
-		playData.rect.y = 0;
-		playData.rect.w = params.DestWidth;
-		playData.rect.h = params.DestHeight;
-		SDL_RenderClear(playData.render);
-		SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
-		SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
 
 		if (player->GetVideoState() == CCVideoState::Ended) {
 			count++;

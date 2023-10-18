@@ -71,6 +71,10 @@ void CCVideoPlayer::DoCloseVideo() {
 }
 void CCVideoPlayer::DoSeekVideo() {
 
+  if (seekDest == render->GetCurVideoPts()) {
+    return;
+  }
+
   if (videoState == CCVideoState::Playing) {
     LOGD("Seek: Stop before seek");
 
@@ -78,6 +82,7 @@ void CCVideoPlayer::DoSeekVideo() {
     StopDecoderThread();
     render->Stop();
   }
+
 
   LOGDF("Seek: Seek to %d", seekDest);
 
@@ -254,7 +259,6 @@ CCVideoState CCVideoPlayer::GetVideoState() {
 int64_t CCVideoPlayer::GetVideoLength() {
   if (!formatContext) {
     SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "Video not open");
-    LOGE("Video not open");
     return 0;
   }
   return (int64_t)(formatContext->duration / (double)AV_TIME_BASE * (double)1000); //ms
@@ -465,6 +469,7 @@ bool CCVideoPlayer::DestroyDecoder() {
     LOGE("DestroyDecoder: Decoder not init");
     return false;
   }
+  decodeState = CCDecodeState::NotInit;
 
   //停止线程
   StopDecoderThread();
@@ -474,10 +479,8 @@ bool CCVideoPlayer::DestroyDecoder() {
   if (audioIndex != -1)
     avcodec_free_context(&audioCodecContext);
   avformat_close_input(&formatContext);
-  avformat_free_context(formatContext);
 
   LOGE("DestroyDecoder: Done");
-  decodeState = CCDecodeState::NotInit;
   return true;
 }
 
@@ -573,10 +576,13 @@ void* CCVideoPlayer::PlayerWorkerThread() {
       playerSeeking = 2;
       DoSeekVideo();
     }
-    if (playerSeeking != 2 && decoderVideoFinish && decoderAudioFinish &&
-      (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished)) {
+    if (
+      playerSeeking != 2 && decoderVideoFinish && decoderAudioFinish &&
+      (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished) &&
+      videoState == CCVideoState::Playing
+     ) {
       auto pos = GetVideoPos();
-      auto dur = GetVideoLength();
+      auto dur =  GetVideoLength();
       if (pos >= dur - 30 || pos == -1) {
 
         decodeQueue.ClearAll();//清空数据

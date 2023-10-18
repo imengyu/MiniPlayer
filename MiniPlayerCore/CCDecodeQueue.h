@@ -7,7 +7,7 @@
 
 #include <thread>
 #include <mutex>
-#include <list>
+#include "CCSimpleQueue.h"
 #include "pch.h"
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -57,18 +57,20 @@ public:
 
     void ClearAll();
 private:
-    std::list<AVPacket*> packetPool;
-    std::list<AVFrame*> framePool;
-    std::list<AVPacket*> videoQueue;
-    std::list<AVPacket*> audioQueue;
-    std::list<AVFrame*>  videoFrameQueue;
-    std::list<AVFrame*>  audioFrameQueue;
+    CCSimpleQueue<AVPacket> packetPool;
+    CCSimpleQueue<AVFrame> framePool;
+    CCSimpleQueue<AVPacket> videoQueue;
+    CCSimpleQueue<AVPacket> audioQueue;
+    CCSimpleQueue<AVFrame> videoFrameQueue;
+    CCSimpleQueue<AVFrame> audioFrameQueue;
 
     bool initState = false;
     CCVideoPlayerExternalData * externalData;
 
     std::mutex packetRequestLock;
     std::mutex frameRequestLock;
+    std::mutex videoFrameQueueRequestLock;
+    std::mutex audioFrameQueueRequestLock;
 };
 
 

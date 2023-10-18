@@ -218,8 +218,9 @@ CCVideoPlayerCallbackDeviceData* CCPlayerRender::SyncRenderStart()
   return &syncRenderData;
 }
 void CCPlayerRender::SyncRenderEnd() {
+  av_frame_unref(outFrame);
+
   if (currentFrame) {
-    av_frame_unref(outFrame);
     externalData->DecodeQueue->ReleaseFrame(currentFrame);
     currentFrame = nullptr;
   }
@@ -248,9 +249,10 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
 
   if (currentFrame == nullptr) {
-    if (!sync)
+    if (!sync) {
       av_usleep((int64_t)(100000));
-    LOGD("Empty video frame");
+      LOGD("Empty video frame");
+    }
     return false;
   }
 

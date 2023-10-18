@@ -7,12 +7,17 @@
 #include "CCVideoPlayer.h"
 #include "Logger.h"
 
-#define QUEUE_MAX_SIZE 65535
-
 void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
 
   if (!initState) {
     initState = true;
+
+    packetPool.alloc(data->InitParams->PacketPoolSize);
+    framePool.alloc(data->InitParams->FramePoolSize);
+    videoQueue.alloc(data->InitParams->FramePoolSize);
+    audioQueue.alloc(data->InitParams->FramePoolSize);
+    videoFrameQueue.alloc(data->InitParams->FramePoolSize);
+    audioFrameQueue.alloc(data->InitParams->FramePoolSize);
 
     AllocFramePool(data->InitParams->FramePoolSize);
     AllocPacketPool(data->InitParams->PacketPoolSize);
@@ -38,30 +43,28 @@ void CCDecodeQueue::Destroy() {
 //包数据队列
 
 void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
-  audioQueue.emplace_back(pkt);
+  audioQueue.push(pkt);
 }
 AVPacket* CCDecodeQueue::AudioDequeue() {
   if (audioQueue.empty())
     return nullptr;
-  AVPacket* pkt = audioQueue.front();
-  audioQueue.pop_front();
+  AVPacket* pkt = audioQueue.pop_front();
   return pkt;
 }
 void CCDecodeQueue::AudioQueueBack(AVPacket* packet) {
-  audioQueue.push_front(packet);
+  audioQueue.push(packet);
 }
 size_t CCDecodeQueue::AudioQueueSize() {
   return audioQueue.size();
 }
 void CCDecodeQueue::VideoEnqueue(AVPacket* pkt) {
-  videoQueue.emplace_back(pkt);
+  videoQueue.push(pkt);
 }
 AVPacket* CCDecodeQueue::VideoDequeue() {
   if (videoQueue.empty())
     return nullptr;
 
-  AVPacket* pkt = videoQueue.front();
-  videoQueue.pop_front();
+  AVPacket* pkt = videoQueue.pop_front();
 
   return pkt;
 }
@@ -76,28 +79,46 @@ size_t CCDecodeQueue::VideoQueueSize() {
 
 AVFrame* CCDecodeQueue::VideoFrameDequeue() {
 
-  if (videoFrameQueue.empty())
-    return nullptr;
+  videoFrameQueueRequestLock.lock();
 
-  AVFrame* frame = videoFrameQueue.front();
-  videoFrameQueue.pop_front();
+  if (videoFrameQueue.empty()) {
+    videoFrameQueueRequestLock.unlock();
+    return nullptr;
+  }
+
+  AVFrame* frame = videoFrameQueue.pop_front();
+
+  videoFrameQueueRequestLock.unlock();
 
   return frame;
 }
 void CCDecodeQueue::VideoFrameEnqueue(AVFrame* frame) {
-  videoFrameQueue.push_back(frame);
+  videoFrameQueueRequestLock.lock();
+
+  videoFrameQueue.push(frame);
+
+  videoFrameQueueRequestLock.unlock();
 }
 AVFrame* CCDecodeQueue::AudioFrameDequeue() {
 
-  if (audioFrameQueue.empty())
-    return nullptr;
+  audioFrameQueueRequestLock.lock();
 
-  AVFrame* frame = audioFrameQueue.front();
-  audioFrameQueue.pop_front();
+  if (audioFrameQueue.empty()) {
+    audioFrameQueueRequestLock.unlock();
+    return nullptr;
+  }
+
+  AVFrame* frame = audioFrameQueue.pop_front();
+
+  audioFrameQueueRequestLock.unlock();
   return frame;
 }
 void CCDecodeQueue::AudioFrameEnqueue(AVFrame* frame) {
-  audioFrameQueue.push_back(frame);
+  audioFrameQueueRequestLock.lock();
+
+  audioFrameQueue.push(frame);
+
+  audioFrameQueueRequestLock.unlock();
 }
 
 size_t CCDecodeQueue::VideoFrameQueueSize() {
@@ -109,15 +130,25 @@ size_t CCDecodeQueue::AudioFrameQueueSize() {
 
 //清空队列数据
 void CCDecodeQueue::ClearAll() {
-  for (auto frame : videoFrameQueue) ReleaseFrame(frame);
-  for (auto frame : audioFrameQueue) ReleaseFrame(frame);
-  for (auto packet : videoQueue) ReleasePacket(packet);
-  for (auto packet : audioQueue) ReleasePacket(packet);
+  videoFrameQueueRequestLock.lock();
+  audioFrameQueueRequestLock.lock();
+
+  for (auto frame = videoFrameQueue.begin(); frame; frame = frame->next)
+    ReleaseFrame(frame->value);
+  for (auto frame = audioFrameQueue.begin(); frame; frame = frame->next)
+    ReleaseFrame(frame->value);
+  for (auto packet = videoQueue.begin(); packet; packet = packet->next)
+    ReleasePacket(packet->value);
+  for (auto packet = audioQueue.begin(); packet; packet = packet->next)
+    ReleasePacket(packet->value);
 
   videoFrameQueue.clear();
   audioFrameQueue.clear();
   videoQueue.clear();
   audioQueue.clear();
+
+  videoFrameQueueRequestLock.unlock();
+  audioFrameQueueRequestLock.unlock();
 }
 
 //视频太慢丢包
@@ -126,8 +157,8 @@ int CCDecodeQueue::VideoDrop(double targetClock) {
   double frameClock;
   int droppedCount = 0;
   if (!videoFrameQueue.empty()) {
-    for (auto it = videoFrameQueue.begin(); it != videoFrameQueue.end();) {
-      AVFrame* frame = *it;
+    for (auto it = videoFrameQueue.begin(); it;) {
+      AVFrame* frame = it->value;
       frameClock = frame->best_effort_timestamp == AV_NOPTS_VALUE ?
         frame->pts : frame->best_effort_timestamp * av_q2d(externalData->VideoTimeBase);
       if ((droppedCount >= (int)videoFrameQueue.size() / 3
@@ -162,7 +193,7 @@ void CCDecodeQueue::ReleasePacket(AVPacket* pkt) {
   }
   else {
 
-    packetPool.push_back(pkt);
+    packetPool.push(pkt);
   }
 
   packetRequestLock.unlock();
@@ -174,15 +205,16 @@ AVPacket* CCDecodeQueue::RequestPacket() {
 
   packetRequestLock.lock();
 
-  if (packetPool.empty())
-    AllocPacketPool(externalData->InitParams->PacketPoolGrowStep);
   if (packetPool.empty()) {
-    LOGEF("Failed to alloc packet pool!");
+    packetPool.increase(externalData->InitParams->PacketPoolGrowStep);
+    AllocPacketPool(externalData->InitParams->PacketPoolGrowStep);
+  }
+  if (packetPool.empty()) {
+    LOGEF("Failed to increase packet pool!");
     return nullptr;
   }
 
-  AVPacket* packet = packetPool.front();
-  packetPool.pop_front();
+  AVPacket* packet = packetPool.pop_front();
 
   packetRequestLock.unlock();
 
@@ -190,13 +222,14 @@ AVPacket* CCDecodeQueue::RequestPacket() {
 }
 void CCDecodeQueue::AllocPacketPool(int size) {
   for (int i = 0; i < size; i++)
-    packetPool.push_back(av_packet_alloc());
-  if (packetPool.size() > QUEUE_MAX_SIZE)
-    LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
+    if (!packetPool.push(av_packet_alloc())) {
+      LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
+      break;
+    }
 }
 void CCDecodeQueue::ReleasePacketPool() {
-  for (auto packet : packetPool)
-    av_packet_free(&packet);
+  for (auto packet = packetPool.begin(); packet; packet = packet->next)
+    av_packet_free(&packet->value);
   packetPool.clear();
 }
 
@@ -212,7 +245,7 @@ void CCDecodeQueue::ReleaseFrame(AVFrame* frame) {
   }
   else {
     av_frame_unref(frame);
-    framePool.push_back(frame);
+    framePool.push(frame);
   }
 
   frameRequestLock.unlock();
@@ -224,15 +257,16 @@ AVFrame* CCDecodeQueue::RequestFrame() {
 
   frameRequestLock.lock();
 
-  if (framePool.empty())
-    AllocFramePool(externalData->InitParams->FramePoolGrowStep);
   if (framePool.empty()) {
-    LOGE("Failed to alloc frame pool!");
+    framePool.increase(externalData->InitParams->FramePoolGrowStep);
+    AllocFramePool(externalData->InitParams->FramePoolGrowStep);
+  }
+  if (framePool.empty()) {
+    LOGE("Failed to increase frame pool!");
     return nullptr;
   }
 
-  AVFrame* frame = framePool.front();
-  framePool.pop_front();
+  AVFrame* frame = framePool.pop_front();
 
   frameRequestLock.unlock();
 
@@ -240,12 +274,13 @@ AVFrame* CCDecodeQueue::RequestFrame() {
 }
 void CCDecodeQueue::AllocFramePool(int size) {
   for (int i = 0; i < size; i++)
-    framePool.push_back(av_frame_alloc());
-  if (framePool.size() > QUEUE_MAX_SIZE)
-    LOGEF("Frame Pool size too large! Size: %d", framePool.size());
+    if (!framePool.push(av_frame_alloc())) {
+      LOGEF("Frame Pool size too large! Size: %d", framePool.size());
+      break;
+    }
 }
 void CCDecodeQueue::ReleaseFramePool() {
-  for (auto frame : framePool)
-    av_frame_free(&frame);
+  for (auto frame = framePool.begin(); frame; frame = frame->next)
+    av_frame_free(&frame->value);
   framePool.clear();
 }
