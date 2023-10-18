@@ -110,7 +110,7 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   audioDevice->SetOnCopyDataCallback(RenderAudioBufferDataStub);
 
 
-#if _DEBUG
+#if _DEBUG && 0
   fopen_s(&out_file, "out.pcm", "wb");
 #endif
 
@@ -436,7 +436,8 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
         currentAudioClock += destDataSamples / ((double)(audioDeviceDefaultFormatInfo.sampleRate * destChannels));
 
 #if _DEBUG
-        fwrite(buffer.FirstData(), 1, buffer.GetFilledSize(), out_file);
+        if (out_file)
+          fwrite(buffer.FirstData(), 1, buffer.GetFilledSize(), out_file);
 #endif
       }
     }

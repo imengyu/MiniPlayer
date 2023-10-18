@@ -17,7 +17,9 @@
 
 void DoPlaySound(wchar_t* strFilename) {
 	CSoundPlayer* player = CreateSoundPlayer();
+	int count = 0;
 
+RELOAD:
 	wprintf(L"音乐：%s\n", strFilename);
 	if (player->Load(strFilename))
 	{
@@ -50,6 +52,17 @@ void DoPlaySound(wchar_t* strFilename) {
 
 		player->Stop();
 		player->Close();
+		count++;
+
+		if (count == 1) {
+			wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎2\\新欢迎2.MP3");
+			goto RELOAD;
+		} else if (count == 2) {
+			wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎3\\新欢迎3.MP3");
+			goto RELOAD;
+		}
+
+
 		wprintf(L"\n音乐已停止\n");
 	}
 	else {
@@ -303,7 +316,11 @@ int main()
 {
 	setlocale(LC_ALL, "chs");
 	wchar_t strFilename[MAX_PATH] = { 0 };
-	wcscpy_s(strFilename, L"D:\\2.mp4");
+	//wcscpy_s(strFilename, L"D:\\2.mp4");
+
+
+	wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎1\\新欢迎1.mp3");
+
 	/*OPENFILENAME ofn = {0};
 	ofn.lStructSize = sizeof(OPENFILENAME);
 	ofn.hwndOwner = GetConsoleWindow();

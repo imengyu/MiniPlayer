@@ -43,33 +43,62 @@ void CCDecodeQueue::Destroy() {
 //包数据队列
 
 void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
+  audioFrameQueueRequestLock.lock();
+
   audioQueue.push(pkt);
+
+  audioFrameQueueRequestLock.unlock();
 }
 AVPacket* CCDecodeQueue::AudioDequeue() {
-  if (audioQueue.empty())
+  audioFrameQueueRequestLock.lock();
+  if (audioQueue.empty()) {
+
+    audioFrameQueueRequestLock.unlock();
     return nullptr;
+  }
   AVPacket* pkt = audioQueue.pop_front();
+
+  audioFrameQueueRequestLock.unlock();
+
   return pkt;
 }
 void CCDecodeQueue::AudioQueueBack(AVPacket* packet) {
+  audioFrameQueueRequestLock.lock();
+
   audioQueue.push(packet);
+
+  audioFrameQueueRequestLock.unlock();
 }
 size_t CCDecodeQueue::AudioQueueSize() {
   return audioQueue.size();
 }
 void CCDecodeQueue::VideoEnqueue(AVPacket* pkt) {
+  videoFrameQueueRequestLock.lock();
+
   videoQueue.push(pkt);
+
+  videoFrameQueueRequestLock.unlock();
 }
 AVPacket* CCDecodeQueue::VideoDequeue() {
-  if (videoQueue.empty())
+  videoFrameQueueRequestLock.lock();
+
+  if (videoQueue.empty()) {
+    videoFrameQueueRequestLock.unlock();
     return nullptr;
+  }
 
   AVPacket* pkt = videoQueue.pop_front();
+
+  videoFrameQueueRequestLock.unlock();
 
   return pkt;
 }
 void CCDecodeQueue::VideoQueueBack(AVPacket* packet) {
+  videoFrameQueueRequestLock.lock();
+
   videoQueue.push_front(packet);
+
+  videoFrameQueueRequestLock.unlock();
 }
 size_t CCDecodeQueue::VideoQueueSize() {
   return videoQueue.size();
