@@ -38,8 +38,8 @@ public:
     bool OpenVideo(const wchar_t* filePath);
     bool CloseVideo();
 
-    void SetVideoState(CCVideoState newState);
-    void SetVideoPos(int64_t pos);
+    bool SetVideoState(CCVideoState newState);
+    bool SetVideoPos(int64_t pos);
     void SetVideoVolume(int vol);
     void SetVideoLoop(bool loop);
 
@@ -132,6 +132,11 @@ private:
     std::thread* decoderVideoThread = nullptr;
     std::thread* playerWorkerThread = nullptr;
 
+    CCEvent decoderAudioThreadDone;
+    CCEvent decoderVideoThreadDone;
+    CCEvent decoderWorkerThreadDone;
+    CCEvent playerWorkerThreadDone;
+
     CCEvent closeDoneEvent;
     CCEvent openDoneEvent;
 
@@ -152,17 +157,16 @@ private:
 
     //流水线启停
 
-    std::mutex startAllLock;
-    std::mutex stopAllLock;
-
     void StartAll();
     void StopAll();
 
     //播放器工作子线程控制
 
-    UCHAR playerClose = 0;
-    UCHAR playerOpen = 0;
-    UCHAR playerSeeking = 0;
+    bool playerClose = false;
+    bool playerOpen = false;
+    bool playerSeeking = false;
+    bool playerPause = false;
+    bool playerPlay = false;
 
     int64_t seekDest = 0;
     int64_t seekPosVideo = 0;

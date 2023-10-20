@@ -149,16 +149,14 @@ void CCPlayerRender::Destroy() {
   }
 }
 void CCPlayerRender::Stop() {
-  if (status != CCRenderState::NotRender) {
+  if (status != CCRenderState::NotRender) 
+  {
     status = CCRenderState::NotRender;
 
     if (renderVideoThread) {
       delete renderVideoThread;
       renderVideoThread = nullptr;
-    }
-    if (renderAudioThread) {
-      delete renderAudioThread;
-      renderAudioThread = nullptr;
+      renderVideoThreadDone.Wait();
     }
 
     audioDevice->Stop();
@@ -261,8 +259,8 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     outFrame = av_frame_alloc();
     outFrameBufferSize = (size_t)av_image_get_buffer_size(outFrameDestFormat, outFrameDestWidth, outFrameDestHeight, 1);
     outFrameBuffer = (uint8_t*)av_malloc(outFrameBufferSize);
-  }
-
+  } 
+  
   double frame_delays = 1.0 / externalData->CurrentFps;
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
 
@@ -271,8 +269,11 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
       av_usleep((int64_t)(100000));
       LOGD("Empty video frame");
     }
+    noMoreVideoFrame = true;
     return false;
   }
+
+  noMoreVideoFrame = false;
 
   //时钟
   AVRational time_base = externalData->VideoTimeBase;
@@ -368,8 +369,12 @@ void* CCPlayerRender::RenderVideoThreadStub(void* param) {
 void* CCPlayerRender::RenderVideoThread() {
   LOGDF("RenderVideoThread Start [%s]", CCRenderStateToString(status));
 
+  renderVideoThreadDone.Reset();
+
   while (status == CCRenderState::Rendering)
     RenderVideoThreadWorker(false);
+
+  renderVideoThreadDone.NotifyOne();
 
   LOGD("RenderVideoThread End");
   return nullptr;

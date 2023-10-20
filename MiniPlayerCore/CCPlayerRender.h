@@ -14,6 +14,7 @@ extern "C" {
 #include "CCPlayerDefine.h"
 #include "CSoundDevice.h"
 #include "CAppendBuffer.h"
+#include "CCEvent.h"
 
 class CCVideoDevice;
 class CCVideoPlayerExternalData;
@@ -33,6 +34,8 @@ public:
   int64_t GetCurVideoPts() { return curVideoPts; }
   int64_t GetCurAudioDts() { return curAudioDts; }
   int64_t GetCurAudioPts() { return curAudioPts; }
+
+  bool NoMoreVideoFrame() { return noMoreVideoFrame; }
 
   void SetVolume(int i);
   int GetVolume() { return 0; }
@@ -59,6 +62,7 @@ private:
   int64_t curVideoPts = 0;	//记录当前播放的视频流Packet的DTS
   int64_t curAudioDts = 0;	//记录当前播放的音频流Packet的DTS
   int64_t curAudioPts = 0;	//记录当前播放的音频流Packet的DTS
+  bool noMoreVideoFrame = false;
 
   int currentVolume = 100;
 
@@ -99,7 +103,7 @@ private:
   AVPixelFormat outFrameDestFormat = AV_PIX_FMT_RGBA;
 
   std::thread* renderVideoThread = nullptr;
-  std::thread* renderAudioThread = nullptr;
+  CCEvent renderVideoThreadDone;
 
   static void* RenderVideoThreadStub(void* param);
   void* RenderVideoThread();

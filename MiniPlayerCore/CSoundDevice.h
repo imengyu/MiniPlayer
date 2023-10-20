@@ -1,6 +1,8 @@
 #pragma once
 #include <Audioclient.h>
 #include <mmdeviceapi.h>
+#include <assert.h>
+#include <mutex>
 extern "C" {
 #include "libswresample/swresample.h"
 #include "libswscale/swscale.h"
@@ -60,6 +62,7 @@ private:
   float currentVolume[5];
   UINT32 bufferFrameCount = 0;
   UINT32 numFramesPadding = 0;
+  std::mutex threadLock;
 
   OnRequestDataSizeCallback requestDataSizeCallback = nullptr;
   OnCopyDataCallback copyDataCallback = nullptr;

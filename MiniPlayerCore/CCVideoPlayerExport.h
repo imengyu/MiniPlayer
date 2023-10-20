@@ -18,11 +18,13 @@
 //***************************************
 #define PLAYER_EVENT_OPEN_DONE            1 //文件打开完成
 #define PLAYER_EVENT_CLOSED               2 //文件关闭完成
-#define PLAYER_EVENT_PLAY_DONE            3 //文件播放至末尾
+#define PLAYER_EVENT_PLAY_END             3 //文件播放至末尾
 #define PLAYER_EVENT_OPEN_FAIED           4 //文件打开失败
 #define PLAYER_EVENT_INIT_DECODER_DONE    5 //初始化解码器完成
 #define PLAYER_EVENT_RENDER_DATA_CALLBACK 6 //渲染回调，仅在 CCVideoPlayerInitParams.UseRenderCallback = true 时触发此事件。
 #define PLAYER_EVENT_SEEK_DONE            7 //跳帧完成
+#define PLAYER_EVENT_PLAY_DONE            8 //播放操作完成
+#define PLAYER_EVENT_PAUSE_DONE           9 //暂停操作完成
 
 //解码器状态值
 //***************************************
@@ -36,7 +38,8 @@ enum class CCVideoState {
   Playing = 4,
   Ended = 5,
   Opened = 6,
-  Paused = 6,
+  Paused = 7,
+  Closing = 8,
 };
 
 //播放器初始化数据配置
@@ -182,14 +185,14 @@ public:
   * 参数：
   *   * newState：状态
   */
-  virtual void SetVideoState(CCVideoState newState) {}
+  virtual bool SetVideoState(CCVideoState newState) { return false; }
   /*
   * 设置播放器的播放位置（跳帧）。
   * 此操作只能跳至I帧。
   * 参数：
   *   * pos：位置，以毫秒为单位。
   */
-  virtual void SetVideoPos(int64_t pos) {}
+  virtual bool SetVideoPos(int64_t pos) { return false; }
   /*
   * 设置播放器的音量
   * 参数：

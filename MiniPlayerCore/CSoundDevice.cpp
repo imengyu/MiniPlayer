@@ -33,8 +33,7 @@ CSoundDevice::CSoundDevice(CSoundDeviceHoster* parent)
 }
 CSoundDevice::~CSoundDevice()
 {
-  if (createSuccess)
-    Destroy();
+  Destroy();
   CloseHandle(hEventCreateDone);
   CloseHandle(hEventDestroyDone);
   CloseHandle(hEventResetDone);
@@ -144,8 +143,10 @@ CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInf
 
 bool CSoundDevice::Create()
 {
-  if (createSuccess)
-    return true;
+  if (!threadLock.try_lock())
+    return createSuccess;
+  else
+    threadLock.unlock();
 
   ResetEvent(hEventCreateDone);
 
@@ -159,11 +160,13 @@ bool CSoundDevice::Create()
 }
 void CSoundDevice::Destroy()
 {
-  if (createSuccess) {
+  if (!threadLock.try_lock()) {
     ResetEvent(hEventDestroyDone);
     SetEvent(hEventDestroy);
     WaitForSingleObject(hEventDestroyDone, INFINITE);
   }
+  else
+    threadLock.unlock();
 }
 void CSoundDevice::Reset()
 {
@@ -228,6 +231,8 @@ void CSoundDevice::PlayerThread(void* p)
   UINT32 numFramesAvailable;
   bool hasMoreData;
   bool hasError = false;
+
+  device->threadLock.lock();
 
   //线程等待多个消息，根据消息执行不同的任务
   int waitMessagesResult = -1;
@@ -463,4 +468,6 @@ EXIT:
     device->parent->NotifyPlayEnd(hasError);
 
   SetEvent(device->hEventDestroyDone);
+
+  device->threadLock.unlock();
 }

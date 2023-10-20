@@ -23,8 +23,6 @@ int CCVideoPlayer::GetLastError() const { return lastErrorCode; }
 void CCVideoPlayer::DoOpenVideo() {
   LOGD("DoOpenVideo: Start");
 
-  DoSetVideoState(CCVideoState::Loading);
-
   if (!InitDecoder()) {
     DoSetVideoState(CCVideoState::Failed);
     CallPlayerEventCallback(PLAYER_EVENT_OPEN_FAIED);
@@ -45,26 +43,23 @@ void CCVideoPlayer::DoOpenVideo() {
   }
 
   DoSetVideoState(CCVideoState::Opened);
-  LOGD("DoOpenVideo: Done");
   openDoneEvent.NotifyOne();
   CallPlayerEventCallback(PLAYER_EVENT_OPEN_DONE);
+  LOGD("DoOpenVideo: Done");
 }
 void CCVideoPlayer::DoCloseVideo() {
   LOGD("DoCloseVideo: Start");
 
-  if (videoState != CCVideoState::NotOpen) {
+  //停止
+  StopAll();
 
-    //停止
-    StopAll();
+  //释放
+  DestroyDecoder();
+  render->Destroy();
+  decodeQueue.Destroy();
 
-    //释放
-    DestroyDecoder();
-    render->Destroy();
-    decodeQueue.Destroy();
-
-    DoSetVideoState(CCVideoState::NotOpen);
-    closeDoneEvent.NotifyOne();
-  }
+  DoSetVideoState(CCVideoState::NotOpen);
+  closeDoneEvent.NotifyOne();
 
   CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
   LOGD("DoCloseVideo: Done");
@@ -72,6 +67,8 @@ void CCVideoPlayer::DoCloseVideo() {
 void CCVideoPlayer::DoSeekVideo() {
 
   if (seekDest == render->GetCurVideoPts()) {
+    CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+    LOGD("Seek: Seek done");
     return;
   }
 
@@ -130,7 +127,6 @@ void CCVideoPlayer::DoSeekVideo() {
     render->Start();
   }
 
-  playerSeeking = 0;
   CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
   LOGD("Seek: Seek done");
 }
@@ -150,9 +146,12 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
   if (videoState == CCVideoState::Loading) {
     SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is loading, please wait a second");
     return false;
+  }  
+  if (videoState == CCVideoState::Closing) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is closing");
+    return false;
   }
   if (videoState > CCVideoState::NotOpen) {
-    LOGEF("A video has been opened. Please close it first [%s]", CCVideoStateToString(videoState));
     SetLastError(VIDEO_PLAYER_ERROR_ALREADY_OPEN, "A video has been opened. Please close it first");
     return false;
   }
@@ -162,10 +161,7 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
 
   openDoneEvent.Reset();
 
-  if (playerOpen == 0) {
-    playerOpen = 1;
-    return true;
-  }
+  playerOpen = true;
   return true;
 }
 bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
@@ -174,17 +170,24 @@ bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
 bool CCVideoPlayer::CloseVideo() {
   LOGD("CloseVideo: Call");
 
+  if (videoState == CCVideoState::Closing) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is closing, call twice");
+    return false;
+  }
+  if (videoState == CCVideoState::Loading) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is loading, please wait a second");
+    return false;
+  }
   if (videoState == CCVideoState::NotOpen || videoState == CCVideoState::Failed) {
-    LOGE("Can not close video because video not load");
+    SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "Can not close video because video not load");
     return false;
   }
 
+  DoSetVideoState(CCVideoState::Closing);
+
   closeDoneEvent.Reset();
 
-  if (playerClose == 0) {
-    playerClose = 1;
-    return true;
-  }
+  playerClose = true;
   return true;
 }
 void CCVideoPlayer::WaitOpenVideo() {
@@ -195,42 +198,60 @@ void CCVideoPlayer::WaitCloseVideo() {
   if (playerClose)
     closeDoneEvent.Wait();
 }
-void CCVideoPlayer::SetVideoState(CCVideoState newState) {
+bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
+
   if (setVideoStateLock.try_lock())
     setVideoStateLock.unlock();
   if (videoState == newState)
-    return;
+    return true;
 
   LOGDF("SetVideoState : %s", CCVideoStateToString(newState));
 
-  switch (newState) {
-  case CCVideoState::NotOpen: CloseVideo(); break;
-  case CCVideoState::Playing:
-    if (videoState == CCVideoState::Loading) {
-      LOGEF("Now player is loading");
-      SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
-      return;
-    }
-    if (GetVideoPos() > GetVideoLength() - 500)
-      SetVideoPos(0);
-    StartAll();
-    break;
-  case CCVideoState::Paused: StopAll(); break;
-  case CCVideoState::Ended:
-  case CCVideoState::Failed:
-  case CCVideoState::Loading:
-    LOGEF("Bad state %s, this state can only get.", CCVideoStateToString(newState));
-    SetLastError(VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET, "");
-    return;
+  if (videoState == CCVideoState::Loading) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
+    return false;
+  }
+  if (videoState == CCVideoState::Closing) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is closing");
+    return false;
   }
 
-}
-void CCVideoPlayer::SetVideoPos(int64_t pos) {
-  if (playerSeeking == 0) {
-    playerSeeking = 1;
-    seekDest = externalData.StartTime + pos;
-    LOGDF("SetVideoPos: Call. %ld/%ld", seekDest, GetVideoLength());
+
+  switch (newState) {
+  case CCVideoState::Playing: {
+    DoSetVideoState(CCVideoState::Loading);
+    playerPlay = true;
+    break;
   }
+  case CCVideoState::Paused: {
+    DoSetVideoState(CCVideoState::Loading);
+    playerPause = true;
+    break;
+  }
+  default:
+    SetLastError(VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET, 
+      StringHelper::FormatString("Bad state %s, this state can only get.", CCVideoStateToString(newState)).c_str()
+    );
+    return false;
+  }
+
+  return true;
+}
+bool CCVideoPlayer::SetVideoPos(int64_t pos) {
+
+  if (videoState == CCVideoState::Loading) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
+    return false;
+  }
+  if (videoState == CCVideoState::Closing) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is closing");
+    return false;
+  }
+
+  playerSeeking = true;
+  seekDest = externalData.StartTime + pos;
+  LOGDF("SetVideoPos: Call. %ld/%ld", seekDest, GetVideoLength());
+  return true;
 }
 int64_t CCVideoPlayer::GetVideoPos() {
 
@@ -245,9 +266,9 @@ int64_t CCVideoPlayer::GetVideoPos() {
   if (!render || !formatContext)
     return -1;
 
-  if (audioIndex != -1)
-    return (int64_t)(render->GetCurAudioPts() * av_q2d(formatContext->streams[audioIndex]->time_base) * 1000);
-  else
+  //if (audioIndex != -1)
+  //  return (int64_t)(render->GetCurAudioPts() * av_q2d(formatContext->streams[audioIndex]->time_base) * 1000);
+  //else
     return (int64_t)(render->GetCurVideoPts() * av_q2d(formatContext->streams[videoIndex]->time_base) * 1000);
 }
 bool CCVideoPlayer::GetVideoLoop() { return loop; }
@@ -281,26 +302,17 @@ void CCVideoPlayer::StartAll() {
     return;
   DoSetVideoState(CCVideoState::Playing);
 
-  startAllLock.lock();
-
   decoderAudioFinish = audioIndex == -1;
   decoderVideoFinish = false;
   StartDecoderThread();
   render->Start();
-
-  startAllLock.unlock();
 }
 void CCVideoPlayer::StopAll() {
   if (videoState == CCVideoState::Paused || videoState == CCVideoState::Ended)
     return;
   DoSetVideoState(CCVideoState::Paused);
-
-  stopAllLock.lock();
-
   StopDecoderThread();
   render->Stop();
-
-  stopAllLock.unlock();
 }
 
 //解码器初始化与反初始化
@@ -512,20 +524,17 @@ void CCVideoPlayer::StopDecoderThread() {
   if (decoderWorkerThread) {
     delete decoderWorkerThread;
     decoderWorkerThread = nullptr;
-    decoderWorkerThreadLock.lock();
-    decoderWorkerThreadLock.unlock();
+    decoderWorkerThreadDone.Wait();
   }
   if (decoderVideoThread) {
     delete decoderVideoThread;
     decoderVideoThread = nullptr;
-    decoderVideoThreadLock.lock();
-    decoderVideoThreadLock.unlock();
+    decoderVideoThreadDone.Wait();
   }
   if (decoderAudioThread) {
     delete decoderAudioThread;
     decoderAudioThread = nullptr;
-    decoderAudioThreadLock.lock();
-    decoderAudioThreadLock.unlock();
+    decoderAudioThreadDone.Wait();
   }
 
   LOGD("StopDecoderThread: Done");
@@ -559,31 +568,40 @@ void* CCVideoPlayer::DecoderAudioThreadStub(void* param) {
 void* CCVideoPlayer::PlayerWorkerThread() {
   //背景线程，用于防止用户主线程卡顿
   LOGI("PlayerWorkerThread : Start");
+  playerWorkerThreadDone.Reset();
 
   while (playerWorking) {
 
-    if (playerClose == 1 && videoState != CCVideoState::Loading) {
-      playerClose = 2;
+    if (playerClose) {
       DoCloseVideo();
-      playerClose = 0;
+      playerClose = false;
     }
-    if (playerOpen == 1) {
-      playerOpen = 2;
+    if (playerOpen) {
       DoOpenVideo();
-      playerOpen = 0;
+      playerOpen = false;
     }
-    if (playerSeeking == 1) {
-      playerSeeking = 2;
+    if (playerSeeking) {
       DoSeekVideo();
+      playerSeeking = false;
+    }
+    if (playerPause) {
+      StopAll();
+      CallPlayerEventCallback(PLAYER_EVENT_PAUSE_DONE);
+      playerPause = false;
+    }
+    if (playerPlay) {
+      StartAll();
+      CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
+      playerPlay = false;
     }
     if (
-      playerSeeking != 2 && decoderVideoFinish && decoderAudioFinish &&
+      decoderVideoFinish && decoderAudioFinish && render->NoMoreVideoFrame() &&
       (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished) &&
       videoState == CCVideoState::Playing
      ) {
       auto pos = GetVideoPos();
       auto dur =  GetVideoLength();
-      if (pos >= dur - 30 || pos == -1) {
+      if (pos >= dur - 1000 || pos == -1) {
 
         decodeQueue.ClearAll();//清空数据
         StopAll();
@@ -591,7 +609,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
         decodeState = CCDecodeState::Finished;
         DoSetVideoState(CCVideoState::Ended);
 
-        CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
+        CallPlayerEventCallback(PLAYER_EVENT_PLAY_END);
         LOGIF("PlayerWorkerThread: decodeState -> Finished pos: %d dur: %d", pos, dur);
       }
     }
@@ -599,6 +617,7 @@ void* CCVideoPlayer::PlayerWorkerThread() {
     av_usleep(100 * 1000);
   }
 
+  playerWorkerThreadDone.NotifyAll();
   LOGI("PlayerWorkerThread : End");
   return nullptr;
 }
@@ -609,6 +628,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   bool seeked = false;
   LOGIF("DecoderWorkerThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
+  decoderWorkerThreadDone.Reset();
   if (!decoderWorkerThreadLock.try_lock()) {
     LOGI("DecoderWorkerThread : Start twice");
     return nullptr;
@@ -683,12 +703,14 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   LOGIF("DecoderWorkerThread : End [%s]", CCDecodeStateToString(decodeState));
 
   decoderWorkerThreadLock.unlock();
+  decoderWorkerThreadDone.NotifyOne();
   return nullptr;
 }
 void* CCVideoPlayer::DecoderVideoThread() {
   //视频解码线程
   LOGIF("DecoderVideoThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
+  decoderVideoThreadDone.Reset();
   if (!decoderVideoThreadLock.try_lock()) {
     LOGI("DecoderVideoThread : Start twice");
     return nullptr;
@@ -760,12 +782,14 @@ QUIT:
   LOGIF("DecoderVideoThread : End [%s]", CCDecodeStateToString(decodeState));
 
   decoderVideoThreadLock.unlock();
+  decoderVideoThreadDone.NotifyOne();
   return nullptr;
 }
 void* CCVideoPlayer::DecoderAudioThread() {
   //音频解码线程
   LOGIF("DecoderAudioThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
+  decoderAudioThreadDone.Reset();
   if (!decoderAudioThreadLock.try_lock()) {
     LOGI("DecoderAudioThread : Start twice");
     return nullptr;
@@ -836,6 +860,7 @@ QUIT:
   LOGIF("DecoderAudioThread : End [%s]", CCDecodeStateToString(decodeState));
 
   decoderAudioThreadLock.unlock();
+  decoderAudioThreadDone.NotifyOne();
   return nullptr;
 }
 
@@ -857,7 +882,7 @@ void CCVideoPlayer::SyncRenderEnd() {
 void CCVideoPlayer::RenderUpdateDestSize(int width, int height) {
   externalData.InitParams->DestWidth = width;
   externalData.InitParams->DestHeight = height;
-
+  render->UpdateDestSize();
 }
 
 CCVideoPlayer::CCVideoPlayer() {
@@ -895,6 +920,7 @@ void CCVideoPlayer::Destroy() {
   if (playerWorkerThread) {
     delete playerWorkerThread;
     playerWorkerThread = nullptr;
+    playerWorkerThreadDone.Wait();
   }
   if (render) {
     render->Destroy();
