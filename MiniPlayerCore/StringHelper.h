@@ -1,11 +1,15 @@
 #pragma once
+#ifndef MINI_PLAYER_EXPORT
+#define MINI_PLAYER_EXPORT
 #include "pch.h"
+#endif
 #include <stdio.h>  
 #include <stdlib.h>  
 #include <string>  
 #include <vector>
 
-class StringHelper
+
+class MINI_PLAYER_EXPORT StringHelper
 {
 public:
 	static std::string& FormatString(std::string& _str, const char* format, ...);
@@ -30,8 +34,8 @@ public:
 	static int StringToInt(const char* _str);
 	static bool StringToBool(const char* _str);
 
-	static void FreeString(LPCWSTR string);
-	static void FreeString(LPCSTR string);
+	static void FreeString(const wchar_t* string);
+	static void FreeString(const char* string);
 
 	static std::string UnicodeToAnsi(std::wstring szStr);
 	static std::string UnicodeToUtf8(std::wstring unicode);

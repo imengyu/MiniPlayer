@@ -199,6 +199,24 @@ void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
   externalData->Player->SetLastError(code, errmsg);
 }
 
+void CCPlayerRender::UpdateDestSize()
+{
+  if (status == CCRenderState::Rendering) {
+    if (swsContext != nullptr)
+      sws_freeContext(swsContext);
+    swsContext = sws_getContext(
+      externalData->VideoCodecContext->width,   //原图片的宽
+      externalData->VideoCodecContext->height,  //源图高
+      externalData->VideoCodecContext->pix_fmt, //源图片format
+      externalData->InitParams->DestWidth,  //目标图的宽
+      externalData->InitParams->DestHeight,  //目标图的高
+      (AVPixelFormat)externalData->InitParams->DestFormat,
+      SWS_BICUBIC,
+      nullptr, nullptr, nullptr
+    );
+  }
+}
+
 CCVideoDevice* CCPlayerRender::CreateVideoDevice(CCVideoPlayerExternalData* data) {
   if (data->InitParams->UseRenderCallback)
     return new CCVideoCallbackDevice(data);
@@ -327,15 +345,11 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   if (sync) {
     syncRenderData.data = outFrame->data;
     syncRenderData.linesize = outFrame->linesize;
-    syncRenderData.width = currentFrame->width;
-    syncRenderData.height = currentFrame->height;
-    syncRenderData.crop_bottom = currentFrame->crop_bottom;
-    syncRenderData.crop_left = currentFrame->crop_left;
-    syncRenderData.crop_right = currentFrame->crop_right;
-    syncRenderData.crop_top = currentFrame->crop_top;
+    syncRenderData.width = outFrameDestWidth;
+    syncRenderData.height = outFrameDestHeight;
     syncRenderData.pts = curVideoPts;
     syncRenderData.type = PLAYER_EVENT_RDC_TYPE_RENDER;
-    syncRenderData.datasize = av_image_get_buffer_size((AVPixelFormat)externalData->InitParams->DestFormat, currentFrame->width, currentFrame->height, 1);
+    syncRenderData.datasize = av_image_get_buffer_size((AVPixelFormat)externalData->InitParams->DestFormat, outFrameDestWidth, outFrameDestHeight, 1);
   }
   else {
     videoDevice->Render(outFrame, curVideoPts);

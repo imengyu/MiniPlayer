@@ -30,10 +30,10 @@ std::string& StringHelper::FormatString(std::string& _str, const char* format, .
 	_str = tmp.c_str();
 	return _str;
 }
-void StringHelper::FreeString(LPCWSTR string) {
+void StringHelper::FreeString(const wchar_t* string) {
 	delete string;
 }
-void StringHelper::FreeString(LPCSTR string) {
+void StringHelper::FreeString(const char* string) {
 	delete string;
 }
 std::wstring& StringHelper::FormatString(std::wstring& _str, const wchar_t* format, ...) {

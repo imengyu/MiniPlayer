@@ -24,6 +24,7 @@ CSoundDevice::CSoundDevice(CSoundDeviceHoster* parent)
   hEventDestroy = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventPlay = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventStop = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventStopDone = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventLoadData = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventReset = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventVolumeUpdate = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -40,6 +41,7 @@ CSoundDevice::~CSoundDevice()
   CloseHandle(hEventDestroy);
   CloseHandle(hEventPlay);
   CloseHandle(hEventStop);
+  CloseHandle(hEventStopDone);
   CloseHandle(hEventLoadData);
   CloseHandle(hEventReset);
   CloseHandle(hEventVolumeUpdate);
@@ -145,10 +147,11 @@ bool CSoundDevice::Create()
   if (createSuccess)
     return true;
 
+  ResetEvent(hEventCreateDone);
+
   std::thread playerThread(PlayerThread, this);
   playerThread.detach();
 
-  ResetEvent(hEventCreateDone);
   WaitForSingleObject(hEventCreateDone, INFINITE);
   ResetEvent(hEventCreateDone);
 
@@ -159,15 +162,15 @@ void CSoundDevice::Destroy()
   if (createSuccess) {
     ResetEvent(hEventDestroyDone);
     SetEvent(hEventDestroy);
-    WaitForSingleObject(hEventDestroyDone, 100);
+    WaitForSingleObject(hEventDestroyDone, INFINITE);
   }
 }
 void CSoundDevice::Reset()
 {
   if (!createSuccess)
     return;
-  SetEvent(hEventReset);
   ResetEvent(hEventResetDone);
+  SetEvent(hEventReset);
   WaitForSingleObject(hEventResetDone, 100);
   ResetEvent(hEventResetDone);
 }
@@ -175,7 +178,9 @@ void CSoundDevice::Stop()
 {
   if (!createSuccess)
     return;
+  ResetEvent(hEventStopDone);
   SetEvent(hEventStop);
+  WaitForSingleObject(hEventStopDone, 100);
 }
 bool CSoundDevice::Start()
 {
@@ -189,11 +194,20 @@ bool CSoundDevice::Start()
 #define REFTIMES_PER_SEC 10000000
 #define REFTIMES_PER_MILLISEC 10000
 
-#define EXIT_ON_ERROR(hresut) if (FAILED(hresut)) { device->parent->SetLastError(PLAYER_ERROR_OUTPUT_ERROR, \
-  StringHelper::FormatString(L"CSoundDevice error in line %d with HRESULT: 0x%08X", __LINE__, hr).c_str()); \
-  SetEvent(device->hEventCreateDone); \
-  device->createSuccess = false; \
-   hasError = true; \
+void CSoundDevice::HandlePlayError(HRESULT hr) {
+
+  if (hr == AUDCLNT_E_SERVICE_NOT_RUNNING)
+    parent->SetLastError(PLAYER_ERROR_SERVICE_NOT_RUN, L"The Windows audio service is not running.");
+  else if (hr == AUDCLNT_E_DEVICE_INVALIDATED)
+    parent->SetLastError(PLAYER_ERROR_DEVICE_INVALID, L"The audio endpoint device has been unplugged, or the audio hardware or associated hardware resources have been reconfigured, disabled, removed, or otherwise made unavailable for use.");
+  else
+    parent->SetLastError(PLAYER_ERROR_OUTPUT_ERROR, StringHelper::FormatString(L"CSoundDevice error with HRESULT: 0x%08X", __LINE__, hr).c_str());
+  SetEvent(hEventCreateDone);
+  createSuccess = false;
+}
+
+#define EXIT_ON_ERROR(hresut) if (FAILED(hresut)) { device->HandlePlayError(hresut);\
+  hasError = true; \
   goto EXIT; }
 
 void CSoundDevice::PlayerThread(void* p)
@@ -227,6 +241,8 @@ void CSoundDevice::PlayerThread(void* p)
      device->hEventGetVolume,
      device->hEventGetPadding
   };
+
+  ResetEvent(device->hEventDestroyDone);
 
   hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
   EXIT_ON_ERROR(hr);
@@ -332,6 +348,7 @@ RESET:
       ResetEvent(device->hEventStop);
       pAudioClient->Stop();
       device->isStarted = false;
+      SetEvent(device->hEventStopDone);
       break;
     case 3:
       //¼ÓÔØÊý¾Ý
@@ -444,4 +461,6 @@ EXIT:
 
   if (device->parent)
     device->parent->NotifyPlayEnd(hasError);
+
+  SetEvent(device->hEventDestroyDone);
 }

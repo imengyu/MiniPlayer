@@ -32,7 +32,8 @@ public:
 	void SetLastError(int code, const wchar_t* errmsg);
 	void SetLastError(int code, const char* errmsg);
 	int GetLastError() { return lastErrorCode; }
-	const wchar_t* GetLastErrorMessage();
+	const wchar_t* GetLastErrorMessage(); 
+	const char* GetLastErrorMessageUtf8();
 
 	unsigned long GetSampleRate() { return currentSampleRate; }
 	int GetBitPerSample() { return currentBitsPerSample; }
@@ -63,6 +64,7 @@ private:
 
 	int lastErrorCode = 0;
 	std::wstring lastErrorMessage;
+	std::string lastErrorMessageUtf8;
 };
 
 

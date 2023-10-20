@@ -64,7 +64,9 @@ private:
   OnRequestDataSizeCallback requestDataSizeCallback = nullptr;
   OnCopyDataCallback copyDataCallback = nullptr;
 
-  static void PlayerThread(void*p);
+  static void PlayerThread(void*p); 
+  
+  void HandlePlayError(HRESULT hr);
 private:
 
   HANDLE hEventCreateDone;
@@ -73,6 +75,7 @@ private:
   HANDLE hEventDestroy;
   HANDLE hEventPlay;
   HANDLE hEventStop;
+  HANDLE hEventStopDone;
   HANDLE hEventLoadData;
   HANDLE hEventReset;
   HANDLE hEventVolumeUpdate;

@@ -217,7 +217,7 @@ void CCDecodeQueue::ReleasePacket(AVPacket* pkt) {
 
   packetRequestLock.lock();
 
-  if (packetPool.size() >= externalData->InitParams->PacketPoolSize) {
+  if (packetPool.size() >= (int)externalData->InitParams->PacketPoolSize) {
     av_packet_free(&pkt);
   }
   else {
@@ -269,7 +269,7 @@ void CCDecodeQueue::ReleaseFrame(AVFrame* frame) {
 
   frameRequestLock.lock();
 
-  if (framePool.size() >= externalData->InitParams->FramePoolSize) {
+  if (framePool.size() >= (int)externalData->InitParams->FramePoolSize) {
     av_frame_free(&frame);
   }
   else {

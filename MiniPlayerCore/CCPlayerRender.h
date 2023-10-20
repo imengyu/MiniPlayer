@@ -19,29 +19,31 @@ class CCVideoDevice;
 class CCVideoPlayerExternalData;
 class CCPlayerRender : public CSoundDeviceHoster {
 public:
-  virtual bool Init(CCVideoPlayerExternalData* data);
-  virtual void Destroy();
-  virtual void Start();
-  virtual void Reset();
-  virtual void Stop();
+  bool Init(CCVideoPlayerExternalData* data);
+  void Destroy();
+  void Start();
+  void Reset();
+  void Stop();
 
-  virtual CCVideoDevice* GetVideoDevice() { return videoDevice; }
-  virtual CSoundDevice* GetAudioDevice() { return audioDevice; }
-  virtual CCRenderState GetState() { return status; }
+  CCVideoDevice* GetVideoDevice() { return videoDevice; }
+  CSoundDevice* GetAudioDevice() { return audioDevice; }
+  CCRenderState GetState() { return status; }
 
-  virtual int64_t GetCurVideoDts() { return curVideoDts; }
-  virtual int64_t GetCurVideoPts() { return curVideoPts; }
-  virtual int64_t GetCurAudioDts() { return curAudioDts; }
-  virtual int64_t GetCurAudioPts() { return curAudioPts; }
+  int64_t GetCurVideoDts() { return curVideoDts; }
+  int64_t GetCurVideoPts() { return curVideoPts; }
+  int64_t GetCurAudioDts() { return curAudioDts; }
+  int64_t GetCurAudioPts() { return curAudioPts; }
 
-  virtual void SetVolume(int i);
-  virtual int GetVolume() { return 0; }
+  void SetVolume(int i);
+  int GetVolume() { return 0; }
 
-  virtual CCVideoPlayerCallbackDeviceData* SyncRenderStart();
-  virtual void SyncRenderEnd();
+  CCVideoPlayerCallbackDeviceData* SyncRenderStart();
+  void SyncRenderEnd();
 
   bool GetShouldReSample() { return false; }
   void SetLastError(int code, const wchar_t* errmsg);
+
+  void UpdateDestSize();
 
 private:
 

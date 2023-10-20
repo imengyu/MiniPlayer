@@ -19,10 +19,6 @@ void CCVideoCallbackDevice::Render(AVFrame* frame, int64_t pts)
   data.pts = pts;
   data.width = frame->width;
   data.height = frame->height;
-  data.crop_bottom = frame->crop_bottom;
-  data.crop_left = frame->crop_left;
-  data.crop_right = frame->crop_right;
-  data.crop_top = frame->crop_top;
   data.datasize = av_image_get_buffer_size((AVPixelFormat)this->data->InitParams->DestFormat, frame->width, frame->height, 0);
   this->data->Player->CallPlayerEventCallback(PLAYER_EVENT_RENDER_DATA_CALLBACK, &data);
 }

@@ -120,10 +120,6 @@ public:
   int type;
   int width;
   int height;
-  int crop_bottom;
-  int crop_left;
-  int crop_top;
-  int crop_right;
   int64_t datasize;
   uint8_t** data;
   int* linesize;

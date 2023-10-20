@@ -857,6 +857,7 @@ void CCVideoPlayer::SyncRenderEnd() {
 void CCVideoPlayer::RenderUpdateDestSize(int width, int height) {
   externalData.InitParams->DestWidth = width;
   externalData.InitParams->DestHeight = height;
+
 }
 
 CCVideoPlayer::CCVideoPlayer() {

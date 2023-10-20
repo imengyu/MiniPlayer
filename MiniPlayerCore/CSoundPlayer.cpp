@@ -25,12 +25,19 @@ CSoundPlayerImpl::~CSoundPlayerImpl()
 
 bool CSoundPlayerImpl::Load(const wchar_t* path)
 {
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		return false;
+	}
 	if (fileOpenedState)
 		Close();
+
+	playerStatus = TPlayerStatus::Loading;
 
 	TStreamFormat thisFileFormat = GetAudioFileFormat(path);
 	if (thisFileFormat == TStreamFormat::sfUnknown) {
 		SetLastError(PLAYER_ERROR_UNKNOWN_FILE_FORMAT, L"UNKNOWN_FILE_FORMAT");
+		playerStatus = TPlayerStatus::NotOpen;
 		return false;
 	}
 
@@ -71,6 +78,7 @@ bool CSoundPlayerImpl::Load(const wchar_t* path)
 			return true;
 		}
 		else {
+			playerStatus = TPlayerStatus::NotOpen;
 			SetLastError(
 				PLAYER_ERROR_DECODER_ERROR, 
 				StringHelper::FormatString(L"Decoder error: %d message: %s", decoder->GetLastError(), decoder->GetLastErrorMessage()).c_str()
@@ -81,6 +89,11 @@ bool CSoundPlayerImpl::Load(const wchar_t* path)
 }
 bool CSoundPlayerImpl::Close()
 {
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		return false;
+	}
+	playerStatus = Loading;
 	if (outputer != NULL) {
 		outputer->Destroy();
 	}
@@ -101,20 +114,29 @@ bool CSoundPlayerImpl::Play()
 		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
 		return false;
 	}
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		return false;
+	}
 	if (playerStatus == Playing) {
 		return true;
 	}
+	playerStatus = TPlayerStatus::Loading;
 	bool rs = outputer->Start();
 	if (rs)
 		playerStatus = TPlayerStatus::Playing;
-	else
-		Close();
+	else 
+		playerStatus = TPlayerStatus::Opened;
 	return rs;
 }
 bool CSoundPlayerImpl::Pause()
 {
 	if (playerStatus == NotOpen) {
 		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
+		return false;
+	}
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
 		return false;
 	}
 	if (playerStatus == Paused) {
@@ -130,14 +152,23 @@ bool CSoundPlayerImpl::Stop()
 		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
 		return false;
 	}
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		return false;
+	}
 	if (playerStatus == TPlayerStatus::Opened)
 		return true;
+	playerStatus = TPlayerStatus::Loading;
 	outputer->Stop();
 	playerStatus = TPlayerStatus::Opened;
 	return true;
 }
 bool CSoundPlayerImpl::Restart()
 {
+	if (playerStatus == Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		return false;
+	}
 	if (playerStatus != NotOpen) {
 		decoder->SeekToSecond(0);
 		outputer->Reset();
@@ -211,6 +242,10 @@ void CSoundPlayerImpl::SetLastError(int code, const char* errmsg)
 const wchar_t* CSoundPlayerImpl::GetLastErrorMessage()
 {
 	return lastErrorMessage.c_str();
+}
+const char* CSoundPlayerImpl::GetLastErrorMessageUtf8() {
+	lastErrorMessageUtf8 = StringHelper::UnicodeToUtf8(lastErrorMessage);
+	return lastErrorMessageUtf8.c_str();
 }
 
 void CSoundPlayerImpl::SetVolume(float volume, int index)

@@ -33,6 +33,8 @@ enum TPlayerStatus
 	Paused,
 	//播放到音乐结尾了
 	PlayEnd,
+	//正在加载中
+	Loading,
 };
 
 //播放器实例
@@ -107,6 +109,8 @@ public:
 	virtual int GetLastError() { return 0; }
 	//获取上次错误信息
 	virtual const wchar_t* GetLastErrorMessage() { return L""; }
+	//获取上次错误信息
+	virtual const char* GetLastErrorMessageUtf8() { return ""; }
 
 	//获取当前音频比特率
 	virtual unsigned long GetSampleRate() { return 0; }
@@ -128,6 +132,9 @@ public:
 #define PLAYER_ERROR_NOT_SUPPORT_FORMAT  4 //不支持的格式
 #define PLAYER_ERROR_OUTPUT_ERROR        5 //输出音频设备错误
 #define PLAYER_ERROR_NOT_LOAD            6 //未加载成功，请稍等或者检查打开状态
+#define PLAYER_ERROR_DEVICE_INVALID      7 //音频输出设备被拔出或者不可用
+#define PLAYER_ERROR_SERVICE_NOT_RUN     8 //Windows 音频服务未运行。(AUDCLNT_E_SERVICE_NOT_RUNNING)
+#define PLAYER_ERROR_LOADING             9 //有操作正在执行，不能重复请求
 
 
 

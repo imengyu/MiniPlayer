@@ -11,6 +11,7 @@
 #include "CSoundPlayerExport.h"
 #include "CCVideoPlayerExport.h"
 #define MINI_PLAYER_EXPORT 
+#include "StringHelper.h"
 
 #endif
 
@@ -24,7 +25,7 @@
 // * 返回：
 //   播放器实例指针
 //
-extern "C" MINI_PLAYER_EXPORT CCVideoPlayerAbstract* CreateVideoPlayer(CCVideoPlayerInitParams * param);
+extern "C" MINI_PLAYER_EXPORT CCVideoPlayerAbstract * CreateVideoPlayer(CCVideoPlayerInitParams * param);
 
 //
 // * 说明：
@@ -48,7 +49,7 @@ extern "C" MINI_PLAYER_EXPORT void DestroyVideoPlayer(CCVideoPlayerAbstract * pl
 // * 返回：
 //   播放器实例指针
 //
-extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreateSoundPlayer();
+extern "C" MINI_PLAYER_EXPORT CSoundPlayer * CreateSoundPlayer();
 
 //
 // * 说明：
@@ -60,7 +61,7 @@ extern "C" MINI_PLAYER_EXPORT CSoundPlayer* CreateSoundPlayer();
 // * 返回：
 //   无
 //
-extern "C" MINI_PLAYER_EXPORT void DestroySoundPlayer(CSoundPlayer* player);
+extern "C" MINI_PLAYER_EXPORT void DestroySoundPlayer(CSoundPlayer * player);
 
 //
 // * 说明：
