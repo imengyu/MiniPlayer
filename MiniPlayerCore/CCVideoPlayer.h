@@ -78,6 +78,8 @@ public:
     void SyncRenderEnd();
 
     void RenderUpdateDestSize(int width, int height);
+
+    AVPixelFormat GetVideoPixelFormat();
 protected:
 
     int lastErrorCode = 0;
@@ -97,6 +99,13 @@ protected:
     AVCodecContext * audioCodecContext = nullptr;//解码器上下文
     AVCodecContext * videoCodecContext = nullptr;//解码器上下文
 
+    AVBufferRef* hw_device_ctx = nullptr;
+    enum AVPixelFormat hw_pix_fmt = AVPixelFormat::AV_PIX_FMT_NONE;
+    enum AVPixelFormat hw_frame_pix_fmt = AVPixelFormat::AV_PIX_FMT_NONE;
+
+    static AVPixelFormat GetHwFormat(AVCodecContext* ctx, const AVPixelFormat* pix_fmts);
+    int InitHwDecoder(AVCodecContext* ctx, const AVHWDeviceType type);
+
     long duration = 0;// 总时长
 
     CCDecodeState decodeState = CCDecodeState::NotInit;// 解码状态
@@ -107,6 +116,7 @@ protected:
 
     int videoIndex = -1;// 数据流索引
     int audioIndex = -1;// 数据流索引
+
 
     bool InitDecoder();
     bool DestroyDecoder();
@@ -159,6 +169,7 @@ private:
 
     void StartAll();
     void StopAll();
+
 
     //播放器工作子线程控制
 

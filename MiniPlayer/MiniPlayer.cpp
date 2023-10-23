@@ -90,8 +90,8 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	int count = 0;
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
-	params.DestWidth = width;
-	params.DestHeight = height;
+	params.DestWidth = 408;
+	params.DestHeight = 720;
 	params.UseRenderCallback = false;
 	params.SyncRender = true;
 

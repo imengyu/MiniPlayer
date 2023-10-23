@@ -16,23 +16,6 @@ bool CCPlayerRender::Init(CCVideoPlayerExternalData* data) {
   audioDevice = CreateAudioDevice(data);
   videoDevice = CreateVideoDevice(data);
 
-  //初始化SwsContext
-  swsContext = sws_getContext(
-    data->VideoCodecContext->width,   //原图片的宽
-    data->VideoCodecContext->height,  //源图高
-    data->VideoCodecContext->pix_fmt, //源图片format
-    data->InitParams->DestWidth,  //目标图的宽
-    data->InitParams->DestHeight,  //目标图的高
-    (AVPixelFormat)data->InitParams->DestFormat,
-    SWS_BICUBIC,
-    nullptr, nullptr, nullptr
-  );
-
-  if (swsContext == nullptr) {
-    LOGEF("Get swsContext failed");
-    return false;
-  }
-
   //初始化 swrContext
   swrContext = swr_alloc();
   if (swrContext == nullptr) {
@@ -197,21 +180,29 @@ void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
   externalData->Player->SetLastError(code, errmsg);
 }
 
+bool CCPlayerRender::RecreateSwsContext() {
+  if (swsContext != nullptr)
+    sws_freeContext(swsContext);
+
+  swsContext = sws_getContext(
+    externalData->VideoCodecContext->width,   //原图片的宽
+    externalData->VideoCodecContext->height,  //源图高
+    externalData->Player->GetVideoPixelFormat(), //源图片format
+    externalData->InitParams->DestWidth,  //目标图的宽
+    externalData->InitParams->DestHeight,  //目标图的高
+    (AVPixelFormat)externalData->InitParams->DestFormat,
+    SWS_BICUBIC,
+    nullptr, nullptr, nullptr
+  );
+  if (swsContext == nullptr) {
+    LOGEF("Get swsContext failed");
+    return false;
+  }
+  return true;
+}
 void CCPlayerRender::UpdateDestSize()
 {
-  if (swsContext != nullptr) {
-    sws_freeContext(swsContext);
-    swsContext = sws_getContext(
-      externalData->VideoCodecContext->width,   //原图片的宽
-      externalData->VideoCodecContext->height,  //源图高
-      externalData->VideoCodecContext->pix_fmt, //源图片format
-      externalData->InitParams->DestWidth,  //目标图的宽
-      externalData->InitParams->DestHeight,  //目标图的高
-      (AVPixelFormat)externalData->InitParams->DestFormat,
-      SWS_BICUBIC,
-      nullptr, nullptr, nullptr
-    );
-  }
+  RecreateSwsContext();
 }
 
 CCVideoDevice* CCPlayerRender::CreateVideoDevice(CCVideoPlayerExternalData* data) {
@@ -259,6 +250,10 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     outFrameBufferSize = (size_t)av_image_get_buffer_size(outFrameDestFormat, outFrameDestWidth, outFrameDestHeight, 1);
     outFrameBuffer = (uint8_t*)av_malloc(outFrameBufferSize);
   } 
+  if (!swsContext && RecreateSwsContext()) {
+    noMoreVideoFrame = true;
+    return false;
+  }
   
   double frame_delays = 1.0 / externalData->CurrentFps;
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
@@ -292,7 +287,7 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   if (externalData->AudioCodecContext != nullptr && externalData->InitParams->SyncVideoAndAudio) {
     //音频与视频的时间差
     double diff = fabs(currentVideoClock - currentAudioClock);
-    //LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
+    LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
     if (currentVideoClock > currentAudioClock) {
       if (diff > 1) {
         av_usleep((uint32_t)((delays * 2) * 1000000));

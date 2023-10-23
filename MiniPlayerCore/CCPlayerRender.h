@@ -112,6 +112,8 @@ private:
   static bool RenderAudioBufferDataStub(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
   bool RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD sample);
 
+  bool RecreateSwsContext();
+
   FILE* out_file;
 };
 
