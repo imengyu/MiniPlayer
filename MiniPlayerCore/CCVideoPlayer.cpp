@@ -174,10 +174,6 @@ bool CCVideoPlayer::CloseVideo() {
     SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is closing, call twice");
     return false;
   }
-  if (videoState == CCVideoState::Loading) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is loading, please wait a second");
-    return false;
-  }
   if (videoState == CCVideoState::NotOpen || videoState == CCVideoState::Failed) {
     SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "Can not close video because video not load");
     return false;
@@ -317,6 +313,33 @@ void CCVideoPlayer::StopAll() {
 
 //解码器初始化与反初始化
 //**************************
+
+static int hw_decoder_init(AVCodecContext* ctx, const enum AVHWDeviceType type)
+{
+  int err = 0;
+  //创建硬件设备信息上下文 
+  if ((err = av_hwdevice_ctx_create(&hw_device_ctx, type, NULL, NULL, 0)) < 0) {
+    fprintf(stderr, "Failed to create specified HW device.\n");
+    return err;
+  }
+  //绑定编解码器上下文和硬件设备信息上下文
+  ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+
+  return err;
+}
+
+static enum AVPixelFormat get_hw_format(AVCodecContext* ctx, const enum AVPixelFormat* pix_fmts)
+{
+  const enum AVPixelFormat* p;
+
+  for (p = pix_fmts; *p != -1; p++) {
+    if (*p == hw_pix_fmt)
+      return *p;
+  }
+
+  fprintf(stderr, "Failed to get HW surface format.\n");
+  return AV_PIX_FMT_NONE;
+}
 
 bool CCVideoPlayer::InitDecoder() {
 
@@ -474,7 +497,7 @@ AUDIO_INIT_DONE:
 }
 bool CCVideoPlayer::DestroyDecoder() {
 
-  LOGE("DestroyDecoder: Start");
+  LOGD("DestroyDecoder: Start");
 
   if (decodeState < CCDecodeState::Ready) {
     SetLastError(VIDEO_PLAYER_ERROR_NOR_INIT, "Decoder not init");
@@ -492,7 +515,7 @@ bool CCVideoPlayer::DestroyDecoder() {
     avcodec_free_context(&audioCodecContext);
   avformat_close_input(&formatContext);
 
-  LOGE("DestroyDecoder: Done");
+  LOGD("DestroyDecoder: Done");
   return true;
 }
 
@@ -576,25 +599,25 @@ void* CCVideoPlayer::PlayerWorkerThread() {
       DoCloseVideo();
       playerClose = false;
     }
-    if (playerOpen) {
+    else if (playerOpen) {
       DoOpenVideo();
       playerOpen = false;
     }
-    if (playerSeeking) {
+    else if (playerSeeking) {
       DoSeekVideo();
       playerSeeking = false;
     }
-    if (playerPause) {
+    else if (playerPause) {
       StopAll();
       CallPlayerEventCallback(PLAYER_EVENT_PAUSE_DONE);
       playerPause = false;
     }
-    if (playerPlay) {
+    else if (playerPlay) {
       StartAll();
       CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
       playerPlay = false;
     }
-    if (
+    else if (
       decoderVideoFinish && decoderAudioFinish && render->NoMoreVideoFrame() &&
       (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished) &&
       videoState == CCVideoState::Playing

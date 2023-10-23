@@ -57,6 +57,9 @@ public:
 
     void ClearAll();
 private:
+    int allocedPacket = 0;
+    int allocedFrame = 0;
+
     CCSimpleQueue<AVPacket> packetPool;
     CCSimpleQueue<AVFrame> framePool;
     CCSimpleQueue<AVPacket> videoQueue;

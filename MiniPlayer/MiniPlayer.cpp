@@ -316,10 +316,10 @@ int main()
 {
 	setlocale(LC_ALL, "chs");
 	wchar_t strFilename[MAX_PATH] = { 0 };
-	//wcscpy_s(strFilename, L"D:\\2.mp4");
+	wcscpy_s(strFilename, L"D:\\2.mp4");
 
 
-	wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎1\\新欢迎1.mp3");
+	//wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎1\\新欢迎1.mp3");
 
 	/*OPENFILENAME ofn = {0};
 	ofn.lStructSize = sizeof(OPENFILENAME);

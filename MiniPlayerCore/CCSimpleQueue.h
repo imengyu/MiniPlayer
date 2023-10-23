@@ -35,7 +35,6 @@ public:
 		m_stack.alloc(max_size);
 		for (int i = 0; i < m_max_size; i++)
 			m_stack.push(new CCSimpleQueueNode<T>());
-		m_size = 0;
 		return true;
 	}
 

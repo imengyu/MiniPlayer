@@ -199,9 +199,8 @@ void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
 
 void CCPlayerRender::UpdateDestSize()
 {
-  if (status == CCRenderState::Rendering) {
-    if (swsContext != nullptr)
-      sws_freeContext(swsContext);
+  if (swsContext != nullptr) {
+    sws_freeContext(swsContext);
     swsContext = sws_getContext(
       externalData->VideoCodecContext->width,   //原图片的宽
       externalData->VideoCodecContext->height,  //源图高

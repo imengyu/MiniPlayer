@@ -17,6 +17,7 @@ extern "C" {
 #include "libavutil/imgutils.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/time.h"
+#include <libavutil/hwcontext.h>
 }
 
 //解码器状态值

@@ -55,11 +55,11 @@ public:
    */
   size_t MaxRenderQueueSize = 16;
   /**
-   * 同步队列增长步长
+   * 包队列初始大小
    */
   size_t PacketPoolSize = 32;
   /**
-   * 同步队列增长步长
+   * 包队列增长步长
    */
   size_t PacketPoolGrowStep = 8;
 
@@ -95,6 +95,10 @@ public:
   * 同步运行
   */
   bool SyncRender = true;
+  /*
+  * 使用硬件加速
+  */
+  bool UseHadwareDecoder = true;
   /**
    * 限制FPS
    */

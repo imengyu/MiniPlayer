@@ -35,6 +35,7 @@ void CCDecodeQueue::Destroy() {
 
     ClearAll();
 
+
     ReleasePacketPool();
     ReleaseFramePool();
   }
@@ -45,7 +46,7 @@ void CCDecodeQueue::Destroy() {
 void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
   audioFrameQueueRequestLock.lock();
 
-  audioQueue.push(pkt);
+  assert(audioQueue.push(pkt));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -65,7 +66,7 @@ AVPacket* CCDecodeQueue::AudioDequeue() {
 void CCDecodeQueue::AudioQueueBack(AVPacket* packet) {
   audioFrameQueueRequestLock.lock();
 
-  audioQueue.push(packet);
+  assert(audioQueue.push(packet));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -96,7 +97,7 @@ AVPacket* CCDecodeQueue::VideoDequeue() {
 void CCDecodeQueue::VideoQueueBack(AVPacket* packet) {
   videoFrameQueueRequestLock.lock();
 
-  videoQueue.push_front(packet);
+  assert(videoQueue.push_front(packet));
 
   videoFrameQueueRequestLock.unlock();
 }
@@ -124,7 +125,7 @@ AVFrame* CCDecodeQueue::VideoFrameDequeue() {
 void CCDecodeQueue::VideoFrameEnqueue(AVFrame* frame) {
   videoFrameQueueRequestLock.lock();
 
-  videoFrameQueue.push(frame);
+  assert(videoFrameQueue.push(frame));
 
   videoFrameQueueRequestLock.unlock();
 }
@@ -145,7 +146,7 @@ AVFrame* CCDecodeQueue::AudioFrameDequeue() {
 void CCDecodeQueue::AudioFrameEnqueue(AVFrame* frame) {
   audioFrameQueueRequestLock.lock();
 
-  audioFrameQueue.push(frame);
+  assert(audioFrameQueue.push(frame));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -209,20 +210,12 @@ int CCDecodeQueue::VideoDrop(double targetClock) {
 //可以随用随取，防止重复申请释放内存的额外开销
 
 void CCDecodeQueue::ReleasePacket(AVPacket* pkt) {
-
-  if (pkt)
-    av_packet_unref(pkt);
-  if (!initState)
-    return;
-
   packetRequestLock.lock();
 
-  if (packetPool.size() >= (int)externalData->InitParams->PacketPoolSize) {
+  av_packet_unref(pkt);
+  if (!packetPool.push(pkt)) {
     av_packet_free(&pkt);
-  }
-  else {
-
-    packetPool.push(pkt);
+    allocedPacket--;
   }
 
   packetRequestLock.unlock();
@@ -240,6 +233,7 @@ AVPacket* CCDecodeQueue::RequestPacket() {
   }
   if (packetPool.empty()) {
     LOGEF("Failed to increase packet pool!");
+    packetRequestLock.unlock();
     return nullptr;
   }
 
@@ -250,31 +244,35 @@ AVPacket* CCDecodeQueue::RequestPacket() {
   return packet;
 }
 void CCDecodeQueue::AllocPacketPool(int size) {
-  for (int i = 0; i < size; i++)
+  for (int i = 0; i < size; i++) {
+    allocedPacket++;
     if (!packetPool.push(av_packet_alloc())) {
       LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
       break;
     }
+  }
 }
 void CCDecodeQueue::ReleasePacketPool() {
-  for (auto packet = packetPool.begin(); packet; packet = packet->next)
+  int freePacket = 0;
+  for (auto packet = packetPool.begin(); packet; packet = packet->next) {
     av_packet_free(&packet->value);
+    freePacket++;
+  }
+
+  assert(freePacket == allocedPacket);
+  allocedPacket = 0;
+
   packetPool.clear();
 }
 
 void CCDecodeQueue::ReleaseFrame(AVFrame* frame) {
-
-  if (!initState)
-    return;
-
   frameRequestLock.lock();
 
-  if (framePool.size() >= (int)externalData->InitParams->FramePoolSize) {
+  av_frame_unref(frame);
+
+  if (!framePool.push(frame)) {
     av_frame_free(&frame);
-  }
-  else {
-    av_frame_unref(frame);
-    framePool.push(frame);
+    allocedFrame--;
   }
 
   frameRequestLock.unlock();
@@ -292,6 +290,7 @@ AVFrame* CCDecodeQueue::RequestFrame() {
   }
   if (framePool.empty()) {
     LOGE("Failed to increase frame pool!");
+    frameRequestLock.unlock();
     return nullptr;
   }
 
@@ -302,14 +301,23 @@ AVFrame* CCDecodeQueue::RequestFrame() {
   return frame;
 }
 void CCDecodeQueue::AllocFramePool(int size) {
-  for (int i = 0; i < size; i++)
+  for (int i = 0; i < size; i++) {
+    allocedFrame++;
     if (!framePool.push(av_frame_alloc())) {
       LOGEF("Frame Pool size too large! Size: %d", framePool.size());
       break;
     }
+  }
 }
 void CCDecodeQueue::ReleaseFramePool() {
-  for (auto frame = framePool.begin(); frame; frame = frame->next)
+  int freeFrame = 0;
+  for (auto frame = framePool.begin(); frame; frame = frame->next) {
     av_frame_free(&frame->value);
+    freeFrame++;
+  }
+
+  assert(freeFrame == allocedFrame);
+  allocedFrame = 0;
+
   framePool.clear();
 }
