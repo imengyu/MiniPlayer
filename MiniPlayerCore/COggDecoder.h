@@ -27,6 +27,8 @@ public:
 	double SeekToSecond(double sec)override;
 	size_t Read(void*  _Buffer, size_t _BufferSize) override;
 
+	TStreamFormat GetFormat() override { return TStreamFormat::sfOgg; }
+
 	double GetCurrentPositionSecond();
 	bool IsOpened() override;
 

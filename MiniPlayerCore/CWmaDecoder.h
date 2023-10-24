@@ -28,6 +28,8 @@ public:
 	DWORD GetCurrentPositionSample()override;
 	DWORD SeekToSample(DWORD sp)override;
 
+	TStreamFormat GetFormat() override { return TStreamFormat::sfWma; }
+
 	double SeekToSecond(double sec)override;
 	double GetCurrentPositionSecond()override;
 

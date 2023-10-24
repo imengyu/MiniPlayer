@@ -13,6 +13,7 @@ public:
 	~CSoundPlayerImpl();
 
 	bool Load(const wchar_t* path);
+	bool PreLoad(const wchar_t* path);
 	bool Close();
 	bool Play();
 	bool Pause();
@@ -22,6 +23,8 @@ public:
 	double GetPosition();
 	void SetPosition(double second);
 	double GetDuration();
+
+	bool IsPreLoad();
 
 	TPlayerStatus GetState();
 	TStreamFormat GetFormat();
@@ -43,8 +46,11 @@ public:
 	unsigned int GetPositionSample();
 	void SetPositionSample(unsigned int sample);
 
+	CSoundDevicePreloadType PlayAlmostEndAndCheckPrelod();
 	void NotifyPlayEnd(bool error);
 	bool GetShouldReSample() { return true; }
+
+	void SetEventCallback(CSoundPlayerEventCallback callback, void* customData);
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
 	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
@@ -52,13 +58,21 @@ private:
 private:
 	CSoundDecoder* decoder = nullptr;
 	CSoundDevice* outputer = nullptr;
+	CSoundDecoder* preloadDecoder = nullptr;
+	TPlayerStatus preloadStatus = TPlayerStatus::NotOpen;
 
 	TStreamFormat openedFileFormat = TStreamFormat::sfUnknown;
-	
+
+	void* eventCallbackCustomData;
+	CSoundPlayerEventCallback eventCallback;
+
+	void CallEventCallback(int event);
+
 	ULONG currentSampleRate = 0;
 	int currentChannels = 0;
 	int currentBitsPerSample = 0;
 
+	bool preloadReadyState = false;
 	bool fileOpenedState = false;
 	TPlayerStatus playerStatus = TPlayerStatus::NotOpen;
 

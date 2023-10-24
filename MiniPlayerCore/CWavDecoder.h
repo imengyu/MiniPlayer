@@ -24,6 +24,8 @@ public:
 	double SeekToSecond(double sec)override;
 	size_t Read(void*  _Buffer, size_t _BufferSize) override;
 
+	TStreamFormat GetFormat() override { return TStreamFormat::sfWav; }
+
 	int Seek(long _Offset, int _Origin);
 
 	double GetCurrentPositionSecond();

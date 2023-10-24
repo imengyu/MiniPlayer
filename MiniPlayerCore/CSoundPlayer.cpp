@@ -87,6 +87,57 @@ bool CSoundPlayerImpl::Load(const wchar_t* path)
 	}
 	return false;
 }
+bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
+{
+	//不可以重复加载
+	if (preloadStatus == TPlayerStatus::Loading) {
+		SetLastError(PLAYER_ERROR_LOADING, "Threre are preload loading, please wait");
+		return false;
+	}
+
+	preloadStatus = TPlayerStatus::Loading;
+
+	//如果播放器处于未加载状态，则直接调用正常的加载方法，无需预加载
+	if (playerStatus == TPlayerStatus::NotOpen || playerStatus == TPlayerStatus::PlayEnd) {
+		preloadReadyState = Load(path);
+		preloadStatus = preloadReadyState ? TPlayerStatus::Opened : TPlayerStatus::NotOpen;
+		return preloadReadyState;
+	}
+
+	preloadReadyState = false;
+
+	if (preloadDecoder)
+		preloadDecoder->Close();
+
+	TStreamFormat thisFileFormat = GetAudioFileFormat(path);
+	if (thisFileFormat == TStreamFormat::sfUnknown) {
+		SetLastError(PLAYER_ERROR_UNKNOWN_FILE_FORMAT, L"Unknown file format");
+		preloadStatus = TPlayerStatus::NotOpen;
+		return false;
+	}
+
+	//如果之前的预加载解码器与当前格式不一致，则销毁之前的，重新创建
+	if (preloadDecoder && preloadDecoder->GetFormat() != thisFileFormat) {
+		delete preloadDecoder;
+		preloadDecoder = nullptr;
+	}
+
+	if (!preloadDecoder)
+		preloadDecoder = CreateDecoderWithFormat(thisFileFormat);
+	if (!preloadDecoder) {
+		preloadStatus = TPlayerStatus::NotOpen;
+		return false;
+	}
+
+	if (preloadDecoder->Open(path)) {
+		preloadReadyState = true;
+		preloadStatus = TPlayerStatus::Opened;
+		return true;
+	}
+
+	preloadStatus = TPlayerStatus::NotOpen;
+	return false;
+}
 bool CSoundPlayerImpl::Close()
 {
 	if (playerStatus == Loading) {
@@ -94,13 +145,19 @@ bool CSoundPlayerImpl::Close()
 		return false;
 	}
 	playerStatus = Loading;
-	if (outputer != NULL) {
+	if (outputer) {
+		outputer->Stop();
 		outputer->Destroy();
 	}
-	if (decoder != NULL) {
+	if (preloadDecoder) {
+		preloadDecoder->Close();
+		delete preloadDecoder;
+		preloadDecoder = nullptr;
+	}
+	if (decoder != nullptr) {
 		decoder->Close();
 		delete decoder;
-		decoder = NULL;
+		decoder = nullptr;
 	}
 	playerStatus = NotOpen;
 	openedFileFormat = TStreamFormat::sfUnknown;
@@ -194,6 +251,10 @@ double CSoundPlayerImpl::GetDuration()
 		return decoder->GetLengthSecond();
 	return 0.0;
 }
+bool CSoundPlayerImpl::IsPreLoad()
+{
+	return preloadReadyState;
+}
 unsigned int CSoundPlayerImpl::GetDurationSample()
 {
 	if (decoder)
@@ -221,12 +282,28 @@ void CSoundPlayerImpl::SetPositionSample(unsigned int sample)
 
 bool CSoundPlayerImpl::OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample)
 {
-	auto read_size = dynamic_cast<CSoundPlayerImpl*>(instance)->decoder->Read(buf, buf_len);
+	auto player = dynamic_cast<CSoundPlayerImpl*>(instance);
+	auto read_size = player->decoder->Read(buf, buf_len);
 	if (read_size < buf_len) {
-		memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
+		if (player->IsPreLoad() && player->preloadDecoder)
+			//有预加载，则直接切换预加载加载这一段空数据
+			player->preloadDecoder->Read((void*)((size_t)buf + read_size), buf_len - read_size);
+		else 
+			memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
 		return false;
 	}
 	return true;
+}
+
+void CSoundPlayerImpl::CallEventCallback(int event)
+{
+	if (eventCallback)
+		eventCallback(this, event, eventCallbackCustomData);
+}
+void CSoundPlayerImpl::SetEventCallback(CSoundPlayerEventCallback callback, void* customData)
+{
+	eventCallback = callback;
+	eventCallbackCustomData = customData;
 }
 
 void CSoundPlayerImpl::SetLastError(int code, const wchar_t* errmsg)
@@ -292,12 +369,46 @@ CSoundDecoder* CSoundPlayerImpl::CreateDecoderWithFormat(TStreamFormat f)
 	return nullptr;
 }
 
+CSoundDevicePreloadType CSoundPlayerImpl::PlayAlmostEndAndCheckPrelod()
+{
+	//播放即将结束，现在检查是否可以预加载
+	if (
+		preloadReadyState && decoder != preloadDecoder && 
+		preloadDecoder && preloadDecoder->IsOpened()
+	) {
+
+		//如果音频参数与之前的不一致，则需要重新启动音频线程
+		bool needRecreatePlay = decoder->GetBitsPerSample() != preloadDecoder->GetBitsPerSample() ||
+			decoder->GetSampleRate() != preloadDecoder->GetSampleRate() ||
+			decoder->GetChannelsCount() != preloadDecoder->GetChannelsCount();
+
+		//交换preloadDecoder和decoder，保证两个都可以释放
+		auto _preloadDecoder = preloadDecoder;
+
+		if (decoder) {
+			decoder->Close();
+			preloadDecoder = decoder;
+		}
+
+		//可用预加载解码器，则直接换到此解码器
+		decoder = _preloadDecoder;
+		preloadReadyState = false; //已使用预加载
+
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END);
+		return needRecreatePlay ? CSoundDevicePreloadType::PreloadReload : CSoundDevicePreloadType::PreloadSame;
+	}
+	return CSoundDevicePreloadType::NoPreload;
+}
 void CSoundPlayerImpl::NotifyPlayEnd(bool error)
 {
-	if (error)
+	if (error) {
 		Close();
-	else if (playerStatus != PlayEnd)
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_ERROR);
+	}
+	else if (playerStatus != PlayEnd) {
 		playerStatus = PlayEnd;
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END);
+	}
 }
 
 

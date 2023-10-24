@@ -37,6 +37,11 @@ enum TPlayerStatus
 	Loading,
 };
 
+class CSoundPlayer;
+
+//播放器事件回调
+typedef void (*CSoundPlayerEventCallback)(CSoundPlayer* player, int message, void* customData);
+
 //播放器实例
 class CSoundPlayer
 {
@@ -47,9 +52,23 @@ public:
 	//加载文件到当前播放器
 	//返回值：返回打开是否成功
 	virtual bool Load(const wchar_t* path) { return false; }
+	//预加载文件到当前播放器。
+	// * 预加载完成后直接调用Play即可播放。
+	// * 或者当前正在播放的文件达到末尾后，立即自动接上播放已预加的内容
+	// * 如果播放器处于未加载状态，则直接调用正常的加载方法，无需预加载
+	// * 最多预加载1个内容，重复调用此方法会导致之前预加载内容失效
+	//返回值：返回打开是否成功
+	virtual bool PreLoad(const wchar_t* path) { return false; }
 	//关闭已加载文件
 	//返回值：返回关闭是否成功
 	virtual bool Close() { return false; }
+
+	//获取当前是否有预加载内容
+	//返回值：返回当前是否有预加载内容
+	virtual bool IsPreLoad() { return false; }
+
+	//设置事件通知回调。回调在非主线程触发
+	virtual void SetEventCallback(CSoundPlayerEventCallback callback, void* customData) {}
 
 	//开始或者继续播放
 	//返回值：如果之前正在播放则返回false，否则返回true
@@ -136,5 +155,7 @@ public:
 #define PLAYER_ERROR_SERVICE_NOT_RUN     8 //Windows 音频服务未运行。(AUDCLNT_E_SERVICE_NOT_RUNNING)
 #define PLAYER_ERROR_LOADING             9 //有操作正在执行，不能重复请求
 
+#define SOUND_PLAYER_EVENT_PLAY_END      1 //播放到末尾
+#define SOUND_PLAYER_EVENT_PLAY_ERROR    2 //播放中途错误
 
 

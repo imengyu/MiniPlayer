@@ -183,20 +183,21 @@ void CCPlayerRender::SetLastError(int code, const wchar_t* errmsg)
 bool CCPlayerRender::RecreateSwsContext() {
   if (swsContext != nullptr)
     sws_freeContext(swsContext);
-
-  swsContext = sws_getContext(
-    externalData->VideoCodecContext->width,   //原图片的宽
-    externalData->VideoCodecContext->height,  //源图高
-    externalData->Player->GetVideoPixelFormat(), //源图片format
-    externalData->InitParams->DestWidth,  //目标图的宽
-    externalData->InitParams->DestHeight,  //目标图的高
-    (AVPixelFormat)externalData->InitParams->DestFormat,
-    SWS_BICUBIC,
-    nullptr, nullptr, nullptr
-  );
-  if (swsContext == nullptr) {
-    LOGEF("Get swsContext failed");
-    return false;
+  if (status == CCRenderState::Rendering) {
+    swsContext = sws_getContext(
+      externalData->VideoCodecContext->width,   //原图片的宽
+      externalData->VideoCodecContext->height,  //源图高
+      externalData->Player->GetVideoPixelFormat(), //源图片format
+      externalData->InitParams->DestWidth,  //目标图的宽
+      externalData->InitParams->DestHeight,  //目标图的高
+      (AVPixelFormat)externalData->InitParams->DestFormat,
+      SWS_BICUBIC,
+      nullptr, nullptr, nullptr
+    );
+    if (swsContext == nullptr) {
+      LOGEF("Get swsContext failed");
+      return false;
+    }
   }
   return true;
 }

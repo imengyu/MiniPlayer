@@ -19,6 +19,7 @@ public:
 	ULONG GetSampleRate()override;
 	int GetBitrate();
 	double GetLengthSecond()override;
+	TStreamFormat GetFormat() override { return TStreamFormat::sfMp3; }
 
 	DWORD GetLengthSample()override;
 	DWORD GetCurrentPositionSample()override;

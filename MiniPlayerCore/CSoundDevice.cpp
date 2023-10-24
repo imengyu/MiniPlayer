@@ -231,6 +231,7 @@ void CSoundDevice::PlayerThread(void* p)
   UINT32 numFramesAvailable;
   bool hasMoreData;
   bool hasError = false;
+  bool reCreateDevice = false;
 
   device->threadLock.lock();
 
@@ -252,6 +253,8 @@ void CSoundDevice::PlayerThread(void* p)
   hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
   EXIT_ON_ERROR(hr);
 
+
+ RECREATE:
   hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
   EXIT_ON_ERROR(hr);
 
@@ -394,12 +397,31 @@ RESET:
       }
 
       if (!hasMoreData) {
-        // 等待缓冲区中的最后一个数据播放后再停止。
-        Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
+        //检查是否允许预加载，如果可以，则切换至预加载资源，继续播放
+        auto preload = device->parent->PlayAlmostEndAndCheckPrelod();
+        switch (preload)
+        {
+        case CSoundDevicePreloadType::PreloadReload:
+        case CSoundDevicePreloadType::NoPreload: {
+          // 等待缓冲区中的最后一个数据播放后再停止。
+          Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
 
-        //停止并且退出
-        pAudioClient->Stop();
-        goto EXIT;
+          //停止并且退出
+          pAudioClient->Stop();
+
+          if (preload == CSoundDevicePreloadType::PreloadReload) {
+            //有不同参数的预加载，需要重新创建音频
+            reCreateDevice = true;
+          }
+
+          goto EXIT;
+        }
+        case CSoundDevicePreloadType::PreloadSame: {
+          //有相同参数的预加载，直接继续循环播放
+          hasMoreData = true;
+          break;
+        }
+        }
       }
       break;
     case 4:
@@ -461,6 +483,12 @@ EXIT:
     pAudioStreamVolume->Release();
   if (pRenderClient)
     pRenderClient->Release();
+
+  //重新创建输出
+  if (reCreateDevice) {
+    reCreateDevice = false;
+    goto RECREATE;
+  }
 
   CoUninitialize();
 

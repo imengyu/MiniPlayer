@@ -540,6 +540,8 @@ INIT_FAIL_CLEAN:
     avcodec_free_context(&videoCodecContext);
   if (audioCodecContext)
     avcodec_free_context(&audioCodecContext);
+  if (hw_device_ctx)
+    av_buffer_unref(&hw_device_ctx);
 
   decodeState = CCDecodeState::FinishedWithError;
   return false;
@@ -565,6 +567,8 @@ bool CCVideoPlayer::DestroyDecoder() {
     avcodec_free_context(&audioCodecContext);
   if (formatContext)
     avformat_close_input(&formatContext);
+  if (hw_device_ctx)
+    av_buffer_unref(&hw_device_ctx);
 
   LOGD("DestroyDecoder: Done");
   return true;

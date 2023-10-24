@@ -31,6 +31,8 @@ public:
 	DWORD GetCurrentPositionSample()override;
 	DWORD SeekToSample(DWORD sp)override;
 
+	TStreamFormat GetFormat() override { return TStreamFormat::sfFLAC; }
+
 	size_t Read(void*  _Buffer, size_t _BufferSize) override;
 
 

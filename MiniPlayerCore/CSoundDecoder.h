@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include <string>
+#include "CSoundPlayerExport.h"
 
 //解码器
 class CSoundDecoder
@@ -19,6 +20,9 @@ public:
 	virtual void Release() {
 		delete this;
 	}
+
+	//获取当前解码器的格式
+	virtual TStreamFormat GetFormat() { return TStreamFormat::sfUnknown; }
 
 	//获取音乐声道数
 	virtual int GetChannelsCount() { return 0; }

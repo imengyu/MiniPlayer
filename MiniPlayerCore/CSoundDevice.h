@@ -10,9 +10,16 @@ extern "C" {
 
 #define BUFFERNOTIFYSIZE 192000
 
+enum class CSoundDevicePreloadType {
+  NoPreload,
+  PreloadSame,
+  PreloadReload,
+};
+
 class CSoundDeviceHoster {
 public:
   virtual void NotifyPlayEnd(bool hasError) {}
+  virtual CSoundDevicePreloadType PlayAlmostEndAndCheckPrelod() { return CSoundDevicePreloadType::NoPreload; }
   virtual void SetLastError(int code, const wchar_t*message) {}
 
   virtual bool GetShouldReSample() { return false; }
