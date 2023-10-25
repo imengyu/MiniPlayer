@@ -3,6 +3,7 @@
 #include <mmdeviceapi.h>
 #include <assert.h>
 #include <mutex>
+#include "CSoundPlayerExport.h"
 extern "C" {
 #include "libswresample/swresample.h"
 #include "libswscale/swscale.h"
@@ -21,6 +22,8 @@ public:
   virtual void NotifyPlayEnd(bool hasError) {}
   virtual CSoundDevicePreloadType PlayAlmostEndAndCheckPrelod() { return CSoundDevicePreloadType::NoPreload; }
   virtual void SetLastError(int code, const wchar_t*message) {}
+
+  virtual const wchar_t* GetDefaultOutputDeviceId() { return nullptr; }
 
   virtual bool GetShouldReSample() { return false; }
   virtual unsigned long GetSampleRate() { return 0; }
@@ -59,6 +62,8 @@ public:
   UINT32 GetBufferSize() { return bufferFrameCount; }
 
   CSoundDeviceDeviceDefaultFormatInfo& RequestDeviceDefaultFormatInfo();
+  static bool GetAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** outList, int* outCount);
+  static void DeleteAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** ptr);
 
 private:
   CSoundDeviceDeviceDefaultFormatInfo deviceDefaultFormatInfo;

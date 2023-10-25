@@ -35,6 +35,22 @@ enum TPlayerStatus
 	PlayEnd,
 	//正在加载中
 	Loading,
+	//正在加载中
+	Closing,
+};
+
+//音频输出设备信息
+struct CSoundDeviceAudioOutDeviceInfo {
+	//设备ID
+	wchar_t id[64];
+	//设备名称
+	wchar_t name[64];
+	//设备状态
+	// * DEVICE_STATE_ACTIVE
+	// * DEVICE_STATE_DISABLED
+	// * DEVICE_STATE_NOTPRESENT
+	// * DEVICE_STATE_UNPLUGGED
+	int state;
 };
 
 class CSoundPlayer;
@@ -69,6 +85,11 @@ public:
 
 	//设置事件通知回调。回调在非主线程触发
 	virtual void SetEventCallback(CSoundPlayerEventCallback callback, void* customData) {}
+
+	//设置默认音频输出设备
+	// * 获取音频输出设备列表信息可以调用 GetAllAudioOutDeviceInfo 函数
+	// * 如果不设置ID，则采用系统默认输出设备
+	virtual void SetDefaultOutputDeviceId(const wchar_t* deviceId) {}
 
 	//开始或者继续播放
 	//返回值：如果之前正在播放则返回false，否则返回true
@@ -149,7 +170,7 @@ public:
 #define PLAYER_ERROR_DECODER_ERROR       2 //解码器错误
 #define PLAYER_ERROR_UNKNOWN_FILE_FORMAT 3 //未知文件格式
 #define PLAYER_ERROR_NOT_SUPPORT_FORMAT  4 //不支持的格式
-#define PLAYER_ERROR_OUTPUT_ERROR        5 //输出音频设备错误
+#define PLAYER_ERROR_OUTPUT_ERROR        5 //WASAPI相关错误
 #define PLAYER_ERROR_NOT_LOAD            6 //未加载成功，请稍等或者检查打开状态
 #define PLAYER_ERROR_DEVICE_INVALID      7 //音频输出设备被拔出或者不可用
 #define PLAYER_ERROR_SERVICE_NOT_RUN     8 //Windows 音频服务未运行。(AUDCLNT_E_SERVICE_NOT_RUNNING)

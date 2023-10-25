@@ -99,6 +99,10 @@ public:
   * 使用硬件加速
   */
   bool UseHadwareDecoder = true;
+  /*
+  * 输出音频设备
+  */
+  wchar_t OutAudioDevice[64];
   /**
    * 限制FPS
    */

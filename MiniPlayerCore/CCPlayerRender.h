@@ -47,6 +47,7 @@ public:
   void SetLastError(int code, const wchar_t* errmsg);
 
   void UpdateDestSize();
+  const wchar_t* GetDefaultOutputDeviceId() { return externalData->InitParams->OutAudioDevice; }
 
 private:
 

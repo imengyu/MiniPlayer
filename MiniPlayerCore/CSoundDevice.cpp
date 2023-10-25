@@ -1,12 +1,17 @@
 #include "pch.h"
 #include "CSoundDevice.h"
-#include "CSoundPlayer.h"
 #include "StringHelper.h"
 #include "DbgHelper.h"
 #include "Logger.h"
+#include <Functiondiscoverykeys_devpkey.h>
 #include <thread>
 
 #define LOG_TAG "CSoundDevice"
+
+#define EXIT_ON_ACTION_ERROR(hresut) if (FAILED(hresut)) { success = false; goto EXIT; }
+#define EXIT_ON_ERROR(hresut) if (FAILED(hresut)) { device->HandlePlayError(hresut);\
+  hasError = true; \
+  goto EXIT; }
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
@@ -87,18 +92,28 @@ UINT32 CSoundDevice::GetPosition()
 CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
 {
   if (deviceDefaultFormatInfo.sampleRate == 0) {
-    CoInitializeEx(0, 0);
+
+    HRESULT hr = CoInitializeEx(0, 0);
+    if (FAILED(hr)) {
+      LOGEF(LOG_TAG, "CoInitializeEx failed  HRESULT: 0x%08X", hr);
+      return deviceDefaultFormatInfo;
+    }
 
     IMMDeviceEnumerator* pEnumerator = NULL;
     IMMDevice* pDevice = NULL;
     IAudioClient* pAudioClient = NULL;
     IAudioRenderClient* pRenderClient = NULL;
     WAVEFORMATEX* pwfx = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
+    const wchar_t* defaultDeviceId = nullptr;
+    CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
     if (FAILED(hr)) {
       LOGEF(LOG_TAG, "CoCreateInstance failed  HRESULT: 0x%08X", hr); 
       goto EXIT;
     }
+
+    defaultDeviceId = parent->GetDefaultOutputDeviceId();
+    if (defaultDeviceId && wcscmp(defaultDeviceId, L"") != 0)
+      hr = pEnumerator->GetDevice(defaultDeviceId, &pDevice);
 
     hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
     if (FAILED(hr)) {
@@ -140,11 +155,99 @@ CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInf
 
   return deviceDefaultFormatInfo;
 }
+bool CSoundDevice::GetAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** outList, int* outCount) {
+
+  bool success = true;
+  IMMDeviceEnumerator* pEnumerator = NULL;
+  IMMDeviceCollection* pEndpoints = NULL;
+  UINT pDeviceCount = 0;
+  IMMDevice* pDevice = NULL;
+  CSoundDeviceAudioOutDeviceInfo* list = nullptr;
+
+  HRESULT hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
+  EXIT_ON_ACTION_ERROR(hr);
+
+  hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
+  EXIT_ON_ACTION_ERROR(hr);
+
+  hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pEndpoints);
+  EXIT_ON_ACTION_ERROR(hr);
+
+  hr = pEndpoints->GetCount(&pDeviceCount);
+  EXIT_ON_ACTION_ERROR(hr);
+
+  list = new CSoundDeviceAudioOutDeviceInfo[pDeviceCount];
+
+  for (size_t i = 0; i < pDeviceCount; i++)
+  {
+    if (SUCCEEDED(pEndpoints->Item(i, &pDevice))) {
+
+      LPWSTR outId;
+      DWORD state;
+      IPropertyStore* pProps = NULL;
+      if (SUCCEEDED(pDevice->GetId(&outId))) {
+        wcsncpy_s(list[i].id, outId, 64);
+
+        hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
+        if (SUCCEEDED(hr)) {
+
+          PROPVARIANT varName;
+          PropVariantInit(&varName);
+
+          hr = pProps->GetValue(PKEY_Device_FriendlyName, &varName);
+          if (SUCCEEDED(hr))
+            wcsncpy_s(list[i].name, varName.pwszVal, 64);
+
+          PropVariantClear(&varName);
+        }
+
+        if (pProps) {
+          pProps->Release();
+          pProps = NULL;
+        }
+
+        CoTaskMemFree(outId);
+      }
+      if (SUCCEEDED(pDevice->GetState(&state))) {
+        list[i].state = state;
+      }
+      pDevice->Release();
+    }
+  }
+
+  if (success) {
+    *outList = list;
+    *outCount = (int)pDeviceCount;
+  }
+  
+EXIT:
+  if (pEnumerator) {
+    pEnumerator->Release();
+    pEnumerator = nullptr;
+  }
+  if (pEndpoints) {
+    pEndpoints->Release();
+    pEndpoints = nullptr;
+  }
+  if (!success && list) {
+    delete[] list;
+    list = nullptr;
+  }
+
+  CoUninitialize();
+  return success;
+}
+void CSoundDevice::DeleteAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** ptr) {
+  if (ptr && *ptr) {
+    delete[] *ptr;
+    *ptr = nullptr;
+  }
+}
 
 bool CSoundDevice::Create()
 {
   if (!threadLock.try_lock())
-    return createSuccess;
+    Destroy();//有旧线程未退出，必须先退出
   else
     threadLock.unlock();
 
@@ -174,7 +277,7 @@ void CSoundDevice::Reset()
     return;
   ResetEvent(hEventResetDone);
   SetEvent(hEventReset);
-  WaitForSingleObject(hEventResetDone, 100);
+  WaitForSingleObject(hEventResetDone, INFINITE);
   ResetEvent(hEventResetDone);
 }
 void CSoundDevice::Stop()
@@ -183,7 +286,7 @@ void CSoundDevice::Stop()
     return;
   ResetEvent(hEventStopDone);
   SetEvent(hEventStop);
-  WaitForSingleObject(hEventStopDone, 100);
+  WaitForSingleObject(hEventStopDone, INFINITE);
 }
 bool CSoundDevice::Start()
 {
@@ -209,10 +312,6 @@ void CSoundDevice::HandlePlayError(HRESULT hr) {
   createSuccess = false;
 }
 
-#define EXIT_ON_ERROR(hresut) if (FAILED(hresut)) { device->HandlePlayError(hresut);\
-  hasError = true; \
-  goto EXIT; }
-
 void CSoundDevice::PlayerThread(void* p)
 {
   auto device = (CSoundDevice*)p;
@@ -226,6 +325,7 @@ void CSoundDevice::PlayerThread(void* p)
   DWORD flags = 0, requestFrameCount = 0;
   BYTE* pData;
   WAVEFORMATEX* pwfx = nullptr;
+  const wchar_t* defaultDeviceId = nullptr;
 
   UINT32 channelCount;
   UINT32 numFramesAvailable;
@@ -253,13 +353,18 @@ void CSoundDevice::PlayerThread(void* p)
   hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
   EXIT_ON_ERROR(hr);
 
-
- RECREATE:
+RECREATE:
   hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
   EXIT_ON_ERROR(hr);
 
-  hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
-  EXIT_ON_ERROR(hr);
+  defaultDeviceId = device->parent->GetDefaultOutputDeviceId();
+  if (defaultDeviceId && wcscmp(defaultDeviceId, L"") != 0)
+    hr = pEnumerator->GetDevice(defaultDeviceId, &pDevice);
+
+  if (!pDevice) {
+    hr = pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
+    EXIT_ON_ERROR(hr);
+  }
 
   hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
   EXIT_ON_ERROR(hr);

@@ -144,11 +144,11 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
   LOGDF("OpenVideo: Call. %hs", StringHelper::Utf8ToUnicode(filePath).c_str());
 
   if (videoState == CCVideoState::Loading) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is loading, please wait a second");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "OpenVideo: Player is loading, please wait a second");
     return false;
   }  
   if (videoState == CCVideoState::Closing) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is closing");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "OpenVideo: Player is closing");
     return false;
   }
   if (videoState > CCVideoState::NotOpen) {
@@ -204,11 +204,11 @@ bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
   LOGDF("SetVideoState : %s", CCVideoStateToString(newState));
 
   if (videoState == CCVideoState::Loading) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "SetVideoState: Now player is loading");
     return false;
   }
   if (videoState == CCVideoState::Closing) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is closing");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "SetVideoState: Now player is closing");
     return false;
   }
 
@@ -236,11 +236,11 @@ bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
 bool CCVideoPlayer::SetVideoPos(int64_t pos) {
 
   if (videoState == CCVideoState::Loading) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is loading");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "SetVideoPos: Now player is loading");
     return false;
   }
   if (videoState == CCVideoState::Closing) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Now player is closing");
+    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "SetVideoPos: Now player is closing");
     return false;
   }
 
@@ -651,26 +651,26 @@ void* CCVideoPlayer::PlayerWorkerThread() {
   while (playerWorking) {
 
     if (playerClose) {
-      DoCloseVideo();
       playerClose = false;
+      DoCloseVideo();
     }
     else if (playerOpen) {
-      DoOpenVideo();
       playerOpen = false;
+      DoOpenVideo();
     }
     else if (playerSeeking) {
-      DoSeekVideo();
       playerSeeking = false;
+      DoSeekVideo();
     }
     else if (playerPause) {
+      playerPause = false;
       StopAll();
       CallPlayerEventCallback(PLAYER_EVENT_PAUSE_DONE);
-      playerPause = false;
     }
     else if (playerPlay) {
+      playerPlay = false;
       StartAll();
       CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
-      playerPlay = false;
     }
     else if (
       decoderVideoFinish && decoderAudioFinish && render->NoMoreVideoFrame() &&

@@ -218,6 +218,16 @@ double GetAudioDurationFast(const wchar_t* file)
 	return 0;
 }
 
+bool GetAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** outList, int* outCount)
+{
+	return CSoundDevice::GetAllAudioOutDeviceInfo(outList, outCount);
+}
+
+void DeleteAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** ptr) 
+{
+	CSoundDevice::DeleteAllAudioOutDeviceInfo(ptr);
+}
+
 #pragma endregion
 
 #pragma region Video utils

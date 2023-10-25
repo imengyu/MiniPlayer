@@ -87,6 +87,30 @@ extern "C" MINI_PLAYER_EXPORT double GetAudioDurationFast(const wchar_t* file);
 //
 extern "C" MINI_PLAYER_EXPORT TStreamFormat GetAudioFileFormat(const wchar_t* file);
 
+//
+// * 说明：
+//   获取音频输出设备列表
+//
+// * 参数：
+//   * [输出] outList ：一个指针变量地址，用于存放返回的设备列表信息。
+// 
+// * 返回：
+//   操作是否成功
+//
+extern "C" MINI_PLAYER_EXPORT bool GetAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo **outList, int* outCount);
+
+//
+// * 说明：
+//   获取音频文件的格式
+//
+// * 参数：
+//   * ptr ：由 GetAllAudioOutDeviceInfo 函数返回的列表信息地址
+// 
+// * 返回：
+//   无
+//
+extern "C" MINI_PLAYER_EXPORT void DeleteAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo **ptr);
+
 //读取视频信息
 struct READ_VIDEO_INFO {
   //指定获取信息是否成功

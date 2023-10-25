@@ -41,6 +41,7 @@ public:
 	unsigned long GetSampleRate() { return currentSampleRate; }
 	int GetBitPerSample() { return currentBitsPerSample; }
 	int GetChannelsCount() { return currentChannels; }
+	const wchar_t* GetDefaultOutputDeviceId();
 
 	unsigned int GetDurationSample();
 	unsigned int GetPositionSample();
@@ -51,6 +52,8 @@ public:
 	bool GetShouldReSample() { return true; }
 
 	void SetEventCallback(CSoundPlayerEventCallback callback, void* customData);
+
+	void SetDefaultOutputDeviceId(const wchar_t* deviceId);
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
 	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
@@ -77,6 +80,7 @@ private:
 	TPlayerStatus playerStatus = TPlayerStatus::NotOpen;
 
 	int lastErrorCode = 0;
+	std::wstring defaultOutputDeviceId;
 	std::wstring lastErrorMessage;
 	std::string lastErrorMessageUtf8;
 };

@@ -26,11 +26,13 @@ CSoundPlayerImpl::~CSoundPlayerImpl()
 bool CSoundPlayerImpl::Load(const wchar_t* path)
 {
 	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		SetLastError(PLAYER_ERROR_LOADING, L"Load: Player is now loading");
 		return false;
 	}
 	if (fileOpenedState)
 		Close();
+	if (preloadReadyState)
+		preloadReadyState = false;
 
 	playerStatus = TPlayerStatus::Loading;
 
@@ -141,10 +143,12 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 bool CSoundPlayerImpl::Close()
 {
 	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		SetLastError(PLAYER_ERROR_LOADING, L"Close: Player is now loading");
 		return false;
 	}
-	playerStatus = Loading;
+	if (playerStatus == Closing)
+		return true;
+	playerStatus = Closing;
 	if (outputer) {
 		outputer->Stop();
 		outputer->Destroy();
@@ -172,7 +176,7 @@ bool CSoundPlayerImpl::Play()
 		return false;
 	}
 	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		SetLastError(PLAYER_ERROR_LOADING, L"Play: Player is now loading");
 		return false;
 	}
 	if (playerStatus == Playing) {
@@ -193,7 +197,7 @@ bool CSoundPlayerImpl::Pause()
 		return false;
 	}
 	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		SetLastError(PLAYER_ERROR_LOADING, L"Pause: Player is now loading");
 		return false;
 	}
 	if (playerStatus == Paused) {
@@ -209,13 +213,8 @@ bool CSoundPlayerImpl::Stop()
 		SetLastError(PLAYER_ERROR_NOT_LOAD, L"No audio loaded in this player");
 		return false;
 	}
-	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
-		return false;
-	}
 	if (playerStatus == TPlayerStatus::Opened)
 		return true;
-	playerStatus = TPlayerStatus::Loading;
 	outputer->Stop();
 	playerStatus = TPlayerStatus::Opened;
 	return true;
@@ -223,7 +222,7 @@ bool CSoundPlayerImpl::Stop()
 bool CSoundPlayerImpl::Restart()
 {
 	if (playerStatus == Loading) {
-		SetLastError(PLAYER_ERROR_LOADING, L"Player is now loading");
+		SetLastError(PLAYER_ERROR_LOADING, L"Restart: Player is now loading");
 		return false;
 	}
 	if (playerStatus != NotOpen) {
@@ -304,6 +303,15 @@ void CSoundPlayerImpl::SetEventCallback(CSoundPlayerEventCallback callback, void
 {
 	eventCallback = callback;
 	eventCallbackCustomData = customData;
+}
+
+void CSoundPlayerImpl::SetDefaultOutputDeviceId(const wchar_t* deviceId)
+{
+	defaultOutputDeviceId = deviceId;
+}
+const wchar_t* CSoundPlayerImpl::GetDefaultOutputDeviceId()
+{
+	return defaultOutputDeviceId.c_str();
 }
 
 void CSoundPlayerImpl::SetLastError(int code, const wchar_t* errmsg)
