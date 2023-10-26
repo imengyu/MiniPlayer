@@ -1,4 +1,5 @@
 #pragma once
+#include "CCAsyncTask.h"
 
 //音频格式（目前只支持几种）
 enum TStreamFormat
@@ -53,10 +54,14 @@ struct CSoundDeviceAudioOutDeviceInfo {
 	int state;
 };
 
+struct CSoundPlayerAsyncTask : public CCAsyncTask {
+	std::wstring Path;
+};
+
 class CSoundPlayer;
 
 //播放器事件回调
-typedef void (*CSoundPlayerEventCallback)(CSoundPlayer* player, int message, void* customData);
+typedef void (*CSoundPlayerEventCallback)(CSoundPlayer* player, int messagek, void* eventDataData, void* customData);
 
 //播放器实例
 class CSoundPlayer
@@ -159,6 +164,13 @@ public:
 	//获取当前音频通道数
 	virtual int GetChannelsCount() { return 0; }
 
+	//执行播放器异步调用
+	//参数：
+	//  * command 命令ID，具体参照 SPA_TASK_* 的命令
+	//  * data  命令参数，每个命令有不同参数
+	//返回值：当前命令ID
+	//命令完成消息将由 SOUND_PLAYER_EVENT_ASYNC_TASK 事件通知
+	virtual int PostWorkerThreadCommand(int command, void* data) { return -1; }
 
 	virtual unsigned int GetDurationSample() { return 0; }
 	virtual unsigned int GetPositionSample() { return 0; }	
@@ -176,7 +188,17 @@ public:
 #define PLAYER_ERROR_SERVICE_NOT_RUN     8 //Windows 音频服务未运行。(AUDCLNT_E_SERVICE_NOT_RUNNING)
 #define PLAYER_ERROR_LOADING             9 //有操作正在执行，不能重复请求
 
-#define SOUND_PLAYER_EVENT_PLAY_END      1 //播放到末尾
+#define SPA_TASK_PLAY                    0
+#define SPA_TASK_PAUSE                   1
+#define SPA_TASK_STOP                    2
+#define SPA_TASK_PRELOAD                 3 //参数 const wchar_t*
+#define SPA_TASK_LOAD                    4 //参数 const wchar_t*
+#define SPA_TASK_CLOSE                   5
+#define SPA_TASK_RESTART                 6
+#define SPA_TASK_GET_STATE               7
+
+#define SOUND_PLAYER_EVENT_PLAY_END      1 //播放到文件末尾
 #define SOUND_PLAYER_EVENT_PLAY_ERROR    2 //播放中途错误
+#define SOUND_PLAYER_EVENT_ASYNC_TASK    3 //异步操作完成
 
 

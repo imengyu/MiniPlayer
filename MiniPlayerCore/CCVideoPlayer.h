@@ -10,6 +10,7 @@
 #include "CCDecodeQueue.h"
 #include "CCPlayerRender.h"
 #include "CCEvent.h"
+#include "CCAsyncTaskQueue.h"
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -66,6 +67,7 @@ public:
     //**********************
 
     const wchar_t* GetLastErrorMessage();
+    const char* GetLastErrorMessageUtf8();
     int GetLastError() const;
 
     void SetLastError(int code, const wchar_t* errmsg);
@@ -80,10 +82,14 @@ public:
     void RenderUpdateDestSize(int width, int height);
 
     AVPixelFormat GetVideoPixelFormat();
+
+    int PostWorkerThreadCommand(int command, void* data);
+
 protected:
 
     int lastErrorCode = 0;
     std::wstring lastErrorMessage;
+    std::string lastErrorMessageUtf8;
     std::string currentFile;
     bool loop = false;
 
@@ -124,8 +130,20 @@ protected:
     void Init(CCVideoPlayerInitParams *initParams);
     void Destroy();
 
+    //异步工作线程
+    //**********************
+
     CCVideoPlayerExternalData externalData;
     CCVideoPlayerInitParams InitParams;
+
+    CCEvent eventWorkerThreadQuit;
+    bool workerThreadEnable = false;
+    CCAsyncTaskQueue workerQueue;
+    std::thread* workerThread;
+    void StartWorkerThread();
+    void StopWorkerThread();
+    static void WorkerThread(CCVideoPlayer* self);
+    void PostWorkerCommandFinish(CCAsyncTask* task);
 
 private:
     //线程控制
@@ -133,24 +151,22 @@ private:
     void StartDecoderThread();
     void StopDecoderThread();
 
-    bool playerWorking = false;
     bool decoderAudioFinish = false;
     bool decoderVideoFinish = false;
+
+    bool playerSeeking = false;
 
     std::thread* decoderWorkerThread = nullptr;
     std::thread* decoderAudioThread = nullptr;
     std::thread* decoderVideoThread = nullptr;
-    std::thread* playerWorkerThread = nullptr;
 
     CCEvent decoderAudioThreadDone;
     CCEvent decoderVideoThreadDone;
     CCEvent decoderWorkerThreadDone;
-    CCEvent playerWorkerThreadDone;
 
     CCEvent closeDoneEvent;
     CCEvent openDoneEvent;
 
-    static void* PlayerWorkerThreadStub(void*param);
     static void* DecoderWorkerThreadStub(void*param);
     static void* DecoderVideoThreadStub(void *param);
     static void* DecoderAudioThreadStub(void *param);
@@ -159,8 +175,6 @@ private:
     std::mutex decoderVideoThreadLock;
     std::mutex decoderAudioThreadLock;
 
-
-    void* PlayerWorkerThread();
     void* DecoderWorkerThread();
     void* DecoderVideoThread();
     void* DecoderAudioThread();
@@ -172,12 +186,6 @@ private:
 
 
     //播放器工作子线程控制
-
-    bool playerClose = false;
-    bool playerOpen = false;
-    bool playerSeeking = false;
-    bool playerPause = false;
-    bool playerPlay = false;
 
     int64_t seekDest = 0;
     int64_t seekPosVideo = 0;

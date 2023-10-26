@@ -203,7 +203,8 @@ bool CCPlayerRender::RecreateSwsContext() {
 }
 void CCPlayerRender::UpdateDestSize()
 {
-  RecreateSwsContext();
+  if (status == CCRenderState::Rendering)
+    RecreateSwsContext();
 }
 
 CCVideoDevice* CCPlayerRender::CreateVideoDevice(CCVideoPlayerExternalData* data) {
@@ -251,10 +252,6 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     outFrameBufferSize = (size_t)av_image_get_buffer_size(outFrameDestFormat, outFrameDestWidth, outFrameDestHeight, 1);
     outFrameBuffer = (uint8_t*)av_malloc(outFrameBufferSize);
   } 
-  if (!swsContext && RecreateSwsContext()) {
-    noMoreVideoFrame = true;
-    return false;
-  }
   
   double frame_delays = 1.0 / externalData->CurrentFps;
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
@@ -264,6 +261,11 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
       av_usleep((int64_t)(100000));
       LOGD("Empty video frame");
     }
+    noMoreVideoFrame = true;
+    return false;
+  }
+
+  if (!swsContext && RecreateSwsContext()) {
     noMoreVideoFrame = true;
     return false;
   }

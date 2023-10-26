@@ -12,15 +12,16 @@ CSoundPlayerImpl::CSoundPlayerImpl()
 {
 	outputer = new CSoundDevice(this);
 	outputer->SetOnCopyDataCallback(OnCopyData);
+
+	StartWorkerThread();
 }
 CSoundPlayerImpl::~CSoundPlayerImpl()
 {
-	if (playerStatus == Playing)
-		Stop();
-
 	Close();
 	if (outputer)
 		delete outputer;
+
+	StopWorkerThread();
 }
 
 bool CSoundPlayerImpl::Load(const wchar_t* path)
@@ -236,6 +237,94 @@ bool CSoundPlayerImpl::Restart()
 	return false;
 }
 
+void CSoundPlayerImpl::StartWorkerThread() {
+	workerThreadEnable = true;
+	if (workerThread)
+		return;
+	eventWorkerThreadQuit.Reset();
+	workerThread = new std::thread(WorkerThread, this);
+	workerThread->detach();
+}
+void CSoundPlayerImpl::StopWorkerThread()
+{
+	workerThreadEnable = false;
+	if (workerThread) {
+		delete workerThread;
+		workerThread = nullptr;
+		eventWorkerThreadQuit.Wait();
+	}
+}
+
+int CSoundPlayerImpl::PostWorkerThreadCommand(int command, void* data) {
+
+	auto task = new CSoundPlayerAsyncTask();
+	task->Command = command;
+	if (command == SPA_TASK_PRELOAD || command == SPA_TASK_LOAD)
+		task->Path = (const wchar_t*)data;
+	workerQueue.Push(task);
+	return task->Id;
+}
+void CSoundPlayerImpl::PostWorkerCommandFinish(CCAsyncTask* task) {
+	CallEventCallback(SOUND_PLAYER_EVENT_ASYNC_TASK, task);
+}
+
+void CSoundPlayerImpl::WorkerThread(CSoundPlayerImpl* self) {
+
+	while (self->workerThreadEnable) {
+
+		auto task = (CSoundPlayerAsyncTask*)(self->workerQueue.Pop());
+
+		if (task) {
+			switch (task->Command)
+			{
+			case SPA_TASK_PLAY:
+				task->ReturnStatus = self->Play();
+				break;
+			case SPA_TASK_PAUSE:
+				task->ReturnStatus = self->Pause();
+				break;
+			case SPA_TASK_STOP:
+				task->ReturnStatus = self->Stop();
+				break;
+			case SPA_TASK_PRELOAD:
+				task->ReturnStatus = self->PreLoad(task->Path.c_str());
+				break;
+			case SPA_TASK_LOAD:
+				task->ReturnStatus = self->Load(task->Path.c_str());
+				break;
+			case SPA_TASK_CLOSE:
+				task->ReturnStatus = self->Close();
+				break;
+			case SPA_TASK_RESTART:
+				task->ReturnStatus = self->Restart();
+				break;
+			case SPA_TASK_GET_STATE:
+				task->ReturnStatus = true;
+				task->ReturnData = (void*)self->GetState();
+				break;
+			default:
+				break;
+			}
+
+			if (!task->ReturnStatus) {
+				task->ReturnErrorCode = self->GetLastError();
+				task->ReturnErrorMessage = self->GetLastErrorMessageUtf8();
+			}
+
+			self->PostWorkerCommandFinish(task);
+
+			if (!task->UserFree)
+				delete task;
+		}
+
+		Sleep(50);
+	}
+
+EXIT:
+	self->workerQueue.Clear();
+	self->eventWorkerThreadQuit.NotifyOne();
+}
+
 double CSoundPlayerImpl::GetPosition()
 {
 	return GetPositionSample() / (double)currentSampleRate;
@@ -294,10 +383,10 @@ bool CSoundPlayerImpl::OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWOR
 	return true;
 }
 
-void CSoundPlayerImpl::CallEventCallback(int event)
+void CSoundPlayerImpl::CallEventCallback(int event, void* eventDataData)
 {
 	if (eventCallback)
-		eventCallback(this, event, eventCallbackCustomData);
+		eventCallback(this, event, eventDataData, eventCallbackCustomData);
 }
 void CSoundPlayerImpl::SetEventCallback(CSoundPlayerEventCallback callback, void* customData)
 {
@@ -400,9 +489,14 @@ CSoundDevicePreloadType CSoundPlayerImpl::PlayAlmostEndAndCheckPrelod()
 
 		//可用预加载解码器，则直接换到此解码器
 		decoder = _preloadDecoder;
+		//更新参数
+		currentSampleRate = decoder->GetSampleRate();
+		currentChannels = decoder->GetChannelsCount();
+		currentBitsPerSample = decoder->GetBitsPerSample();
+
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
 		preloadReadyState = false; //已使用预加载
 
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END);
 		return needRecreatePlay ? CSoundDevicePreloadType::PreloadReload : CSoundDevicePreloadType::PreloadSame;
 	}
 	return CSoundDevicePreloadType::NoPreload;
@@ -411,11 +505,11 @@ void CSoundPlayerImpl::NotifyPlayEnd(bool error)
 {
 	if (error) {
 		Close();
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_ERROR);
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_ERROR, nullptr);
 	}
-	else if (playerStatus != PlayEnd) {
+	else if (playerStatus == Playing && playerStatus != PlayEnd) {
 		playerStatus = PlayEnd;
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END);
+		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
 	}
 }
 

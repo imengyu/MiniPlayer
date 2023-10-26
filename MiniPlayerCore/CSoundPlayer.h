@@ -3,6 +3,7 @@
 #include "CSoundDevice.h"
 #include "CSoundPlayerExport.h"
 #include "Export.h"
+#include "CCAsyncTaskQueue.h"
 #include <string>
 
 //²¥·ÅÆ÷ÊµÀý
@@ -52,8 +53,10 @@ public:
 	bool GetShouldReSample() { return true; }
 
 	void SetEventCallback(CSoundPlayerEventCallback callback, void* customData);
-
 	void SetDefaultOutputDeviceId(const wchar_t* deviceId);
+
+	int PostWorkerThreadCommand(int command, void* data);
+
 private:
 	CSoundDecoder* CreateDecoderWithFormat(TStreamFormat f);
 	static bool OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWORD buf_len, DWORD sample);
@@ -69,7 +72,16 @@ private:
 	void* eventCallbackCustomData;
 	CSoundPlayerEventCallback eventCallback;
 
-	void CallEventCallback(int event);
+	void CallEventCallback(int event, void* eventDataData); 
+
+	CCEvent eventWorkerThreadQuit;
+	bool workerThreadEnable = false;
+	CCAsyncTaskQueue workerQueue;
+	std::thread* workerThread;
+	void StartWorkerThread();
+	void StopWorkerThread();
+	static void WorkerThread(CSoundPlayerImpl* self);
+	void PostWorkerCommandFinish(CCAsyncTask* task);
 
 	ULONG currentSampleRate = 0;
 	int currentChannels = 0;

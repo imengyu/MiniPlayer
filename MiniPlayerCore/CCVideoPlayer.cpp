@@ -8,6 +8,16 @@
 #include "StringHelper.h"
 #include "Logger.h"
 
+CCVideoPlayer::CCVideoPlayer() {
+  Init(nullptr);
+}
+CCVideoPlayer::CCVideoPlayer(CCVideoPlayerInitParams* initParams) {
+  Init(initParams);
+}
+CCVideoPlayer::~CCVideoPlayer() {
+  Destroy();
+}
+
 void CCVideoPlayer::CallPlayerEventCallback(int message) {
   CallPlayerEventCallback(message, nullptr);
 }
@@ -20,116 +30,6 @@ int CCVideoPlayer::GetLastError() const { return lastErrorCode; }
 //播放器子线程方法
 //**************************
 
-void CCVideoPlayer::DoOpenVideo() {
-  LOGD("DoOpenVideo: Start");
-
-  if (!InitDecoder()) {
-    DoSetVideoState(CCVideoState::Failed);
-    CallPlayerEventCallback(PLAYER_EVENT_OPEN_FAIED);
-    LOGD("DoOpenVideo: InitDecoder failed");
-    return;
-  }
-
-  decodeQueue.Init(&externalData);
-
-  CallPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
-  LOGD("DoOpenVideo: InitDecoder done");
-
-  if (!render->Init(&externalData)) {
-    DoSetVideoState(CCVideoState::Failed);
-    CallPlayerEventCallback(PLAYER_EVENT_OPEN_FAIED);
-    LOGD("DoOpenVideo: Init render failed");
-    return;
-  }
-
-  DoSetVideoState(CCVideoState::Opened);
-  openDoneEvent.NotifyOne();
-  CallPlayerEventCallback(PLAYER_EVENT_OPEN_DONE);
-  LOGD("DoOpenVideo: Done");
-}
-void CCVideoPlayer::DoCloseVideo() {
-  LOGD("DoCloseVideo: Start");
-
-  //停止
-  StopAll();
-
-  //释放
-  DestroyDecoder();
-  render->Destroy();
-  decodeQueue.Destroy();
-
-  DoSetVideoState(CCVideoState::NotOpen);
-  closeDoneEvent.NotifyOne();
-
-  CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
-  LOGD("DoCloseVideo: Done");
-}
-void CCVideoPlayer::DoSeekVideo() {
-
-  if (seekDest == render->GetCurVideoPts()) {
-    CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
-    LOGD("Seek: Seek done");
-    return;
-  }
-
-  if (videoState == CCVideoState::Playing) {
-    LOGD("Seek: Stop before seek");
-
-    //先停止序列
-    StopDecoderThread();
-    render->Stop();
-  }
-
-
-  LOGDF("Seek: Seek to %d", seekDest);
-
-  //跳转到指定帧
-
-  int ret;
-  {
-
-    seekPosVideo = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[videoIndex]->time_base);
-    if (seekPosVideo > render->GetCurVideoPts())
-      ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_FRAME);
-    else
-      ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
-    if (ret != 0) {
-      LOGEF("av_seek_frame video failed : %d", ret);
-      playerSeeking = 0;
-      return;
-    }
-
-    //avcodec_flush_buffers(videoCodecContext);//清空缓存数据
-  }
-
-  /*
-  if(audioIndex != -1) {
-      seekPosAudio = av_rescale_q(seekDest * 1000, AV_TIME_BASE_Q, formatContext->streams[audioIndex]->time_base);
-      ret = av_seek_frame(formatContext, audioIndex, seekPosAudio,
-                              (uint) AVSEEK_FLAG_BACKWARD | (uint) AVSEEK_FLAG_ANY);
-      if (ret != 0)
-          LOGEF("av_seek_frame audio failed : %d", ret);
-      else
-          avcodec_flush_buffers(audioCodecContext);//清空缓存数据
-  }
-  */
-
-  //清空队列中所有残留数据
-  decodeQueue.ClearAll();
-
-  decoderAudioFinish = audioIndex == -1;
-  decoderVideoFinish = false;
-
-  if (videoState == CCVideoState::Playing) {
-    //启动线程
-    LOGD("Seek: Start all for seek");
-    StartDecoderThread();
-    render->Start();
-  }
-
-  CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
-  LOGD("Seek: Seek done");
-}
 void CCVideoPlayer::DoSetVideoState(CCVideoState state) {
   setVideoStateLock.lock();
   videoState = state;
@@ -161,7 +61,29 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
 
   openDoneEvent.Reset();
 
-  playerOpen = true;
+  LOGD("DoOpenVideo: Start");
+
+  if (!InitDecoder()) {
+    DoSetVideoState(CCVideoState::Failed);
+    LOGD("DoOpenVideo: InitDecoder failed");
+    return false;
+  }
+
+  decodeQueue.Init(&externalData);
+
+  CallPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
+  LOGD("DoOpenVideo: InitDecoder done");
+
+  if (!render->Init(&externalData)) {
+    DoSetVideoState(CCVideoState::Failed);
+    LOGD("DoOpenVideo: Init render failed");
+    return false;
+  }
+
+  DoSetVideoState(CCVideoState::Opened);
+  openDoneEvent.NotifyOne();
+  LOGD("DoOpenVideo: Done");
+
   return true;
 }
 bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
@@ -181,18 +103,31 @@ bool CCVideoPlayer::CloseVideo() {
 
   DoSetVideoState(CCVideoState::Closing);
 
+  LOGD("DoCloseVideo: Start");
+
   closeDoneEvent.Reset();
 
-  playerClose = true;
+  //停止
+  StopAll();
+
+  //释放
+  DestroyDecoder();
+  render->Destroy();
+  decodeQueue.Destroy();
+
+  DoSetVideoState(CCVideoState::NotOpen);
+  closeDoneEvent.NotifyOne();
+
+  CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
+  LOGD("DoCloseVideo: Done");
+
   return true;
 }
 void CCVideoPlayer::WaitOpenVideo() {
-  if (playerOpen)
-    openDoneEvent.Wait();
+  openDoneEvent.Wait();
 }
 void CCVideoPlayer::WaitCloseVideo() {
-  if (playerClose)
-    closeDoneEvent.Wait();
+  closeDoneEvent.Wait();
 }
 bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
 
@@ -216,12 +151,10 @@ bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
   switch (newState) {
   case CCVideoState::Playing: {
     DoSetVideoState(CCVideoState::Loading);
-    playerPlay = true;
     break;
   }
   case CCVideoState::Paused: {
     DoSetVideoState(CCVideoState::Loading);
-    playerPause = true;
     break;
   }
   default:
@@ -244,9 +177,75 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     return false;
   }
 
+  if (seekDest == render->GetCurVideoPts()) {
+    CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+    LOGD("Seek: Seek done");
+    return true;
+  }
+
   playerSeeking = true;
+
+  if (videoState == CCVideoState::Playing) {
+    LOGD("Seek: Stop before seek");
+
+    //先停止序列
+    StopDecoderThread();
+    render->Stop();
+  }
+
   seekDest = externalData.StartTime + pos;
-  LOGDF("SetVideoPos: Call. %ld/%ld", seekDest, GetVideoLength());
+
+  LOGDF("Seek: Seek to %d", seekDest);
+
+  //跳转到指定帧
+
+  int ret;
+  {
+
+    seekPosVideo = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[videoIndex]->time_base);
+    if (seekPosVideo > render->GetCurVideoPts())
+      ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_FRAME);
+    else
+      ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
+    if (ret != 0) {
+      LOGEF("av_seek_frame video failed : %d", ret);
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("av_seek_frame video failed : %d", ret).c_str()); 
+      playerSeeking = false;
+      return false;
+    }
+
+    //avcodec_flush_buffers(videoCodecContext);//清空缓存数据
+  }
+
+  /*
+  if(audioIndex != -1) {
+      seekPosAudio = av_rescale_q(seekDest * 1000, AV_TIME_BASE_Q, formatContext->streams[audioIndex]->time_base);
+      ret = av_seek_frame(formatContext, audioIndex, seekPosAudio,
+                              (uint) AVSEEK_FLAG_BACKWARD | (uint) AVSEEK_FLAG_ANY);
+      if (ret != 0)
+          LOGEF("av_seek_frame audio failed : %d", ret);
+      else
+          avcodec_flush_buffers(audioCodecContext);//清空缓存数据
+  }
+  */
+
+  //清空队列中所有残留数据
+  decodeQueue.ClearAll();
+
+  decoderAudioFinish = audioIndex == -1;
+  decoderVideoFinish = false;
+
+  if (videoState == CCVideoState::Playing) {
+    //启动线程
+    LOGD("Seek: Start all for seek");
+    StartDecoderThread();
+    render->Start();
+  }
+
+  CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+  LOGD("Seek: Seek done"); 
+  
+  playerSeeking = false;
   return true;
 }
 int64_t CCVideoPlayer::GetVideoPos() {
@@ -620,11 +619,6 @@ void CCVideoPlayer::StopDecoderThread() {
 
 //线程入口包装函数
 
-void* CCVideoPlayer::PlayerWorkerThreadStub(void* param) {
-  void* result = ((CCVideoPlayer*)param)->PlayerWorkerThread();
-  ((CCVideoPlayer*)param)->playerWorkerThread = 0;
-  return result;
-}
 void* CCVideoPlayer::DecoderWorkerThreadStub(void* param) {
   void* result = ((CCVideoPlayer*)param)->DecoderWorkerThread();
   ((CCVideoPlayer*)param)->decoderWorkerThread = 0;
@@ -643,62 +637,112 @@ void* CCVideoPlayer::DecoderAudioThreadStub(void* param) {
 
 //线程主函数
 
-void* CCVideoPlayer::PlayerWorkerThread() {
-  //背景线程，用于防止用户主线程卡顿
-  LOGI("PlayerWorkerThread : Start");
-  playerWorkerThreadDone.Reset();
+//异步工作线程
 
-  while (playerWorking) {
+void CCVideoPlayer::StartWorkerThread() {
+  workerThreadEnable = true;
+  if (workerThread)
+    return;
+  eventWorkerThreadQuit.Reset();
+  workerThread = new std::thread(WorkerThread, this);
+  workerThread->detach();
+}
+void CCVideoPlayer::StopWorkerThread()
+{
+  workerThreadEnable = false;
+  if (workerThread) {
+    delete workerThread;
+    workerThread = nullptr;
+    eventWorkerThreadQuit.Wait();
+  }
+}
 
-    if (playerClose) {
-      playerClose = false;
-      DoCloseVideo();
-    }
-    else if (playerOpen) {
-      playerOpen = false;
-      DoOpenVideo();
-    }
-    else if (playerSeeking) {
-      playerSeeking = false;
-      DoSeekVideo();
-    }
-    else if (playerPause) {
-      playerPause = false;
-      StopAll();
-      CallPlayerEventCallback(PLAYER_EVENT_PAUSE_DONE);
-    }
-    else if (playerPlay) {
-      playerPlay = false;
-      StartAll();
-      CallPlayerEventCallback(PLAYER_EVENT_PLAY_DONE);
+int CCVideoPlayer::PostWorkerThreadCommand(int command, void* data) {
+
+  auto task = new CCVideoPlayerAsyncTask();
+  task->Command = command;
+  if (command == VIDEO_PLAYER_ASYNC_TASK_OPEN)
+    task->Path = (const wchar_t*)data;
+  if (command == VIDEO_PLAYER_ASYNC_TASK_SET_STATE)
+    task->State = (CCVideoState)(int)data;
+  if (command == VIDEO_PLAYER_ASYNC_TASK_SET_POS)
+    task->Pos = (int)data;
+  
+  workerQueue.Push(task);
+  return task->Id;
+}
+void CCVideoPlayer::PostWorkerCommandFinish(CCAsyncTask* task) {
+  CallPlayerEventCallback(PLAYER_EVENT_ASYNC_TASK, task);
+}
+
+void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
+
+  while (self->workerThreadEnable) {
+
+    auto task = (CCVideoPlayerAsyncTask*)(self->workerQueue.Pop());
+
+    if (task) {
+      switch (task->Command)
+      {
+      case VIDEO_PLAYER_ASYNC_TASK_OPEN:
+        task->ReturnStatus = self->OpenVideo(task->Path.c_str());
+        break;
+      case VIDEO_PLAYER_ASYNC_TASK_CLOSE:
+        task->ReturnStatus = self->CloseVideo();
+        break;
+      case VIDEO_PLAYER_ASYNC_TASK_SET_STATE:
+        task->ReturnStatus = self->SetVideoState(task->State);
+        break;
+      case VIDEO_PLAYER_ASYNC_TASK_GET_STATE:
+        task->ReturnStatus = true;
+        task->ReturnData = (void*)self->GetVideoState();
+        break;
+      case VIDEO_PLAYER_ASYNC_TASK_SET_POS:
+        task->ReturnStatus = self->SetVideoPos(task->Pos);
+        break;
+      default:
+        break;
+      }
+
+      if (!task->ReturnStatus) {
+        task->ReturnErrorCode = self->GetLastError();
+        task->ReturnErrorMessage = self->GetLastErrorMessageUtf8();
+      }
+
+      self->PostWorkerCommandFinish(task);
+
+      if (!task->UserFree)
+        delete task;
     }
     else if (
-      decoderVideoFinish && decoderAudioFinish && render->NoMoreVideoFrame() &&
-      (decodeState > CCDecodeState::NotInit && decodeState != CCDecodeState::Finished) &&
-      videoState == CCVideoState::Playing
-     ) {
-      auto pos = GetVideoPos();
-      auto dur =  GetVideoLength();
+      self->decoderVideoFinish && self->decoderAudioFinish && self->render->NoMoreVideoFrame() &&
+      (self->decodeState > CCDecodeState::NotInit && self->decodeState != CCDecodeState::Finished) &&
+      self->videoState == CCVideoState::Playing
+      ) {
+      auto pos = self->GetVideoPos();
+      auto dur = self->GetVideoLength();
       if (pos >= dur - 1000 || pos == -1) {
 
-        decodeQueue.ClearAll();//清空数据
-        StopAll();
+        self->decodeQueue.ClearAll();//清空数据
+        self->StopAll();
 
-        decodeState = CCDecodeState::Finished;
-        DoSetVideoState(CCVideoState::Ended);
+        self->decodeState = CCDecodeState::Finished;
+        self->DoSetVideoState(CCVideoState::Ended);
 
-        CallPlayerEventCallback(PLAYER_EVENT_PLAY_END);
+        self->CallPlayerEventCallback(PLAYER_EVENT_PLAY_END);
         LOGIF("PlayerWorkerThread: decodeState -> Finished pos: %d dur: %d", pos, dur);
       }
     }
-
-    av_usleep(100 * 1000);
+    Sleep(50);
   }
 
-  playerWorkerThreadDone.NotifyAll();
-  LOGI("PlayerWorkerThread : End");
-  return nullptr;
+EXIT:
+  self->workerQueue.Clear();
+  self->eventWorkerThreadQuit.NotifyOne();
 }
+
+//主解码线程
+
 void* CCVideoPlayer::DecoderWorkerThread() {
   //读取线程，解复用线程
   int ret;
@@ -993,15 +1037,6 @@ AVPixelFormat CCVideoPlayer::GetVideoPixelFormat()
     );
 }
 
-CCVideoPlayer::CCVideoPlayer() {
-  Init(nullptr);
-}
-CCVideoPlayer::CCVideoPlayer(CCVideoPlayerInitParams* initParams) {
-  Init(initParams);
-}
-CCVideoPlayer::~CCVideoPlayer() {
-  Destroy();
-}
 void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
   if (initParams != nullptr)
     memcpy(&InitParams, initParams, sizeof(CCVideoPlayerInitParams));
@@ -1010,12 +1045,7 @@ void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
   externalData.DecodeQueue = &decodeQueue;
   externalData.Player = this;
 
-  playerWorking = true;
-
-  if (playerWorkerThread == nullptr) {
-    playerWorkerThread = new std::thread(PlayerWorkerThreadStub, this);
-    playerWorkerThread->detach();
-  }
+  StartWorkerThread();
 
   //av_log
 
@@ -1023,13 +1053,8 @@ void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
   av_log_set_callback(FFmpegLogFunc);
 }
 void CCVideoPlayer::Destroy() {
-  playerWorking = false;
+  StopWorkerThread();
 
-  if (playerWorkerThread) {
-    delete playerWorkerThread;
-    playerWorkerThread = nullptr;
-    playerWorkerThreadDone.Wait();
-  }
   if (render) {
     render->Destroy();
     delete render;
@@ -1062,6 +1087,11 @@ void CCVideoPlayer::SetLastError(int code, const char* errmsg)
 const wchar_t* CCVideoPlayer::GetLastErrorMessage()
 {
   return lastErrorMessage.c_str();
+}
+const char* CCVideoPlayer::GetLastErrorMessageUtf8()
+{
+  lastErrorMessageUtf8 = StringHelper::UnicodeToUtf8(lastErrorMessage);
+  return lastErrorMessageUtf8.c_str();
 }
 
 

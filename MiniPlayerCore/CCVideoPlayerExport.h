@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <stdint.h>
+#include "CCAsyncTask.h"
 
 //播放器错误
 //***************************************
@@ -16,15 +17,13 @@
 
 //播放器事件
 //***************************************
-#define PLAYER_EVENT_OPEN_DONE            1 //文件打开完成
 #define PLAYER_EVENT_CLOSED               2 //文件关闭完成
 #define PLAYER_EVENT_PLAY_END             3 //文件播放至末尾
-#define PLAYER_EVENT_OPEN_FAIED           4 //文件打开失败
+#define PLAYER_EVENT_ASYNC_TASK           4 //异步事件回调
 #define PLAYER_EVENT_INIT_DECODER_DONE    5 //初始化解码器完成
 #define PLAYER_EVENT_RENDER_DATA_CALLBACK 6 //渲染回调，仅在 CCVideoPlayerInitParams.UseRenderCallback = true 时触发此事件。
 #define PLAYER_EVENT_SEEK_DONE            7 //跳帧完成
-#define PLAYER_EVENT_PLAY_DONE            8 //播放操作完成
-#define PLAYER_EVENT_PAUSE_DONE           9 //暂停操作完成
+
 
 //解码器状态值
 //***************************************
@@ -40,6 +39,21 @@ enum class CCVideoState {
   Opened = 6,
   Paused = 7,
   Closing = 8,
+};
+
+//异步任务数据
+//***************************************
+
+#define VIDEO_PLAYER_ASYNC_TASK_OPEN      0 //参数 const wchar_t*
+#define VIDEO_PLAYER_ASYNC_TASK_CLOSE     1 //参数 const wchar_t*
+#define VIDEO_PLAYER_ASYNC_TASK_SET_STATE 2 //参数 int
+#define VIDEO_PLAYER_ASYNC_TASK_GET_STATE 3 //
+#define VIDEO_PLAYER_ASYNC_TASK_SET_POS   4 //
+
+struct CCVideoPlayerAsyncTask : public CCAsyncTask {
+  std::wstring Path;
+  CCVideoState State;
+  int Pos;
 };
 
 //播放器初始化数据配置
@@ -285,9 +299,19 @@ public:
   virtual void SetLastError(int code, const char* errmsg) {}
   //获取错误信息
   virtual const wchar_t* GetLastErrorMessage() { return L""; }
+  //获取错误信息(utf8编码)
+  virtual const char* GetLastErrorMessageUtf8() { return ""; }
   //获取错误号
   //返回值：参见上方：VIDEO_PLAYER_ERROR_*
   virtual int GetLastError() const { return 0; }
+
+  //执行播放器异步调用
+  //参数：
+  //  * command 命令ID，具体参照 VIDEO_PLAYER_ASYNC_TASK_* 的命令
+  //  * data  命令参数，每个命令有不同参数
+  //返回值：当前命令ID
+  //命令完成消息将由 PLAYER_EVENT_ASYNC_TASK 事件通知
+  virtual int PostWorkerThreadCommand(int command, void* data) { return -1; }
 };
 
 

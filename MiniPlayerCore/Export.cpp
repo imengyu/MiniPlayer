@@ -297,3 +297,8 @@ EXIT:
 }
 
 #pragma endregion
+
+void DeletePlayerMemory(void* ptr) {
+	if (ptr)
+		delete ptr;
+}

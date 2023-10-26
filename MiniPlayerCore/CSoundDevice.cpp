@@ -353,10 +353,10 @@ void CSoundDevice::PlayerThread(void* p)
   hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
   EXIT_ON_ERROR(hr);
 
-RECREATE:
   hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
   EXIT_ON_ERROR(hr);
 
+RECREATE:
   defaultDeviceId = device->parent->GetDefaultOutputDeviceId();
   if (defaultDeviceId && wcscmp(defaultDeviceId, L"") != 0)
     hr = pEnumerator->GetDevice(defaultDeviceId, &pDevice);
@@ -517,6 +517,7 @@ RESET:
           if (preload == CSoundDevicePreloadType::PreloadReload) {
             //有不同参数的预加载，需要重新创建音频
             reCreateDevice = true;
+            SetEvent(device->hEventPlay);
           }
 
           goto EXIT;
@@ -578,10 +579,6 @@ EXIT:
   device->isStarted = false;
   device->createSuccess = false;
 
-  if (pEnumerator)
-    pEnumerator->Release();
-  if (pDevice)
-    pDevice->Release();
   if (pAudioClient)
     pAudioClient->Release();
   if (pAudioStreamVolume)
@@ -595,7 +592,13 @@ EXIT:
     goto RECREATE;
   }
 
+  if (pEnumerator)
+    pEnumerator->Release();
+  if (pDevice)
+    pDevice->Release();
+
   CoUninitialize();
+
 
   if (device->parent)
     device->parent->NotifyPlayEnd(hasError);

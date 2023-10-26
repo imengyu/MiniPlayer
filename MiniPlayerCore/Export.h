@@ -10,6 +10,7 @@
 
 #include "CSoundPlayerExport.h"
 #include "CCVideoPlayerExport.h"
+#include "CCAsyncTask.h"
 #define MINI_PLAYER_EXPORT 
 #include "StringHelper.h"
 
@@ -152,3 +153,15 @@ extern "C" MINI_PLAYER_EXPORT void ReleaseVideoInfo(READ_VIDEO_INFO * ptr);
 //   格式信息结构体，不需要使用时需要调用 ReleaseVideoInfo 函数释放
 //
 extern "C" MINI_PLAYER_EXPORT READ_VIDEO_INFO * GetVideoInfo(const wchar_t* pchFileName);
+
+//
+// * 说明：
+//   释放本模块暴露出去的内存地址
+//
+// * 参数：
+//   * ptr ：内存指针
+// 
+// * 返回：
+//   无
+//
+extern "C" MINI_PLAYER_EXPORT void DeletePlayerMemory(void* ptr);

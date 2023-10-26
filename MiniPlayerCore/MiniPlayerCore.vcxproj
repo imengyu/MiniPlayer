@@ -162,6 +162,8 @@
   <ItemGroup>
     <ClInclude Include="CAacDecoder.h" />
     <ClInclude Include="CAppendBuffer.h" />
+    <ClInclude Include="CCAsyncTask.h" />
+    <ClInclude Include="CCAsyncTaskQueue.h" />
     <ClInclude Include="CCDecodeQueue.h" />
     <ClInclude Include="CCPlayerDefine.h" />
     <ClInclude Include="CCPlayerRender.h" />
@@ -193,6 +195,7 @@
   <ItemGroup>
     <ClCompile Include="CAacDecoder.cpp" />
     <ClCompile Include="CAppendBuffer.cpp" />
+    <ClCompile Include="CCAsyncTaskQueue.cpp" />
     <ClCompile Include="CCDecodeQueue.cpp" />
     <ClCompile Include="CCPlayerDefine.cpp" />
     <ClCompile Include="CCPlayerRender.cpp" />
