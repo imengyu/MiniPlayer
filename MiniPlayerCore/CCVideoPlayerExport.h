@@ -44,14 +44,14 @@ enum class CCVideoState {
 //异步任务数据
 //***************************************
 
-#define VIDEO_PLAYER_ASYNC_TASK_OPEN      0 //参数 const wchar_t*
-#define VIDEO_PLAYER_ASYNC_TASK_CLOSE     1 //参数 const wchar_t*
+#define VIDEO_PLAYER_ASYNC_TASK_OPEN      0 //参数 const char*
+#define VIDEO_PLAYER_ASYNC_TASK_CLOSE     1 //参数 nullptr
 #define VIDEO_PLAYER_ASYNC_TASK_SET_STATE 2 //参数 int
-#define VIDEO_PLAYER_ASYNC_TASK_GET_STATE 3 //
-#define VIDEO_PLAYER_ASYNC_TASK_SET_POS   4 //
+#define VIDEO_PLAYER_ASYNC_TASK_GET_STATE 3 //参数 nullptr
+#define VIDEO_PLAYER_ASYNC_TASK_SET_POS   4 //参数 int
 
 struct CCVideoPlayerAsyncTask : public CCAsyncTask {
-  std::wstring Path;
+  std::string Path;
   CCVideoState State;
   int Pos;
 };

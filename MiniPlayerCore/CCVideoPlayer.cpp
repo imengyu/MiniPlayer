@@ -92,13 +92,11 @@ bool CCVideoPlayer::OpenVideo(const wchar_t* filePath) {
 bool CCVideoPlayer::CloseVideo() {
   LOGD("CloseVideo: Call");
 
-  if (videoState == CCVideoState::Closing) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "Player is closing, call twice");
-    return false;
-  }
+  if (videoState == CCVideoState::Closing)
+    return true;
   if (videoState == CCVideoState::NotOpen || videoState == CCVideoState::Failed) {
     SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "Can not close video because video not load");
-    return false;
+    return true;
   }
 
   DoSetVideoState(CCVideoState::Closing);
@@ -151,10 +149,14 @@ bool CCVideoPlayer::SetVideoState(CCVideoState newState) {
   switch (newState) {
   case CCVideoState::Playing: {
     DoSetVideoState(CCVideoState::Loading);
+    StartAll();
+    DoSetVideoState(CCVideoState::Playing);
     break;
   }
   case CCVideoState::Paused: {
     DoSetVideoState(CCVideoState::Loading);
+    StopAll();
+    DoSetVideoState(CCVideoState::Paused);
     break;
   }
   default:
@@ -174,6 +176,10 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
   }
   if (videoState == CCVideoState::Closing) {
     SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "SetVideoPos: Now player is closing");
+    return false;
+  }
+  if (videoState == CCVideoState::NotOpen) {
+    SetLastError(VIDEO_PLAYER_ERROR_NOT_OPEN, "SetVideoPos: Can not seek video because video not load");
     return false;
   }
 
@@ -359,8 +365,8 @@ bool CCVideoPlayer::InitDecoder() {
   if (openState < 0) {
     char errBuf[128];
     if (av_strerror(openState, errBuf, sizeof(errBuf)) == 0) {
-      LOGEF("InitDecoder: Failed to open input file, error : %s", errBuf);
       SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("Failed to open input file, error : %s", errBuf).c_str());
+      LOGEF("InitDecoder: Failed to open input file, error : %s", errBuf);
     }
     goto INIT_FAIL_CLEAN;
   }
@@ -662,7 +668,7 @@ int CCVideoPlayer::PostWorkerThreadCommand(int command, void* data) {
   auto task = new CCVideoPlayerAsyncTask();
   task->Command = command;
   if (command == VIDEO_PLAYER_ASYNC_TASK_OPEN)
-    task->Path = (const wchar_t*)data;
+    task->Path = (const char*)data;
   if (command == VIDEO_PLAYER_ASYNC_TASK_SET_STATE)
     task->State = (CCVideoState)(int)data;
   if (command == VIDEO_PLAYER_ASYNC_TASK_SET_POS)
