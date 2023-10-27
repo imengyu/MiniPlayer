@@ -4,8 +4,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <mutex>
+
+std::mutex formatStringLock;
 
 std::string& StringHelper::FormatString(std::string& _str, const char* format, ...) {
+	formatStringLock.lock();
 	std::string tmp;
 
 	va_list marker = nullptr;
@@ -28,15 +32,12 @@ std::string& StringHelper::FormatString(std::string& _str, const char* format, .
 	va_end(marker);
 
 	_str = tmp.c_str();
+
+	formatStringLock.unlock();
 	return _str;
 }
-void StringHelper::FreeString(const wchar_t* string) {
-	delete string;
-}
-void StringHelper::FreeString(const char* string) {
-	delete string;
-}
 std::wstring& StringHelper::FormatString(std::wstring& _str, const wchar_t* format, ...) {
+	formatStringLock.lock();
 	std::wstring tmp;
 	va_list marker = NULL;
 	va_start(marker, format);
@@ -56,10 +57,13 @@ std::wstring& StringHelper::FormatString(std::wstring& _str, const wchar_t* form
 
 	va_end(marker);
 	_str = tmp.c_str();
+
+	formatStringLock.unlock();
 	return _str;
 }
 std::wstring StringHelper::FormatString(const wchar_t* format, va_list marker)
 {
+	formatStringLock.lock();
 	std::wstring tmp;
 #ifdef _MSC_VER
 	size_t num_of_chars = _vscwprintf(format, marker);
@@ -74,10 +78,13 @@ std::wstring StringHelper::FormatString(const wchar_t* format, va_list marker)
 #else
 	vswprintf((wchar_t*)tmp.data(), tmp.capacity(), format, marker);
 #endif
+
+	formatStringLock.unlock();
 	return tmp;
 }
 std::string StringHelper::FormatString(const char* format, va_list marker)
 {
+	formatStringLock.lock();
 	std::string tmp;
 #ifdef _MSC_VER
 	size_t num_of_chars = _vscprintf(format, marker);
@@ -93,10 +100,13 @@ std::string StringHelper::FormatString(const char* format, va_list marker)
 #else
 	vsprintf(nullptr, format, marker);
 #endif
+
+	formatStringLock.unlock();
 	return tmp;
 }
 std::wstring StringHelper::FormatString(const wchar_t* format, ...)
 {
+	formatStringLock.lock();
 	std::wstring tmp;
 	va_list marker = NULL;
 	va_start(marker, format);
@@ -115,10 +125,13 @@ std::wstring StringHelper::FormatString(const wchar_t* format, ...)
 	vswprintf((wchar_t*)tmp.data(), tmp.capacity(), format, marker);
 #endif
 	va_end(marker);
+
+	formatStringLock.unlock();
 	return tmp;
 }
 std::string StringHelper::FormatString(const char* format, ...)
 {
+	formatStringLock.lock();
 	std::string tmp;
 
 	va_list marker = NULL;
@@ -142,7 +155,16 @@ std::string StringHelper::FormatString(const char* format, ...)
 	va_end(marker);
 
 	std::string _str = tmp.c_str();
+
+	formatStringLock.unlock();
 	return _str;
+}
+
+void StringHelper::FreeString(const wchar_t* string) {
+	delete string;
+}
+void StringHelper::FreeString(const char* string) {
+	delete string;
 }
 
 void StringHelper::ReplaceStringChar(std::wstring& _str, wchar_t find, wchar_t replace) {

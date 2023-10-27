@@ -195,9 +195,7 @@ private:
 
 
     void DoSetVideoState(CCVideoState state);
-    void DoOpenVideo();
-    void DoCloseVideo();
-    void DoSeekVideo();
+    std::string GetAvError(int code);
 
     static void FFmpegLogFunc(void* ptr, int level, const char* fmt,va_list vl);
 };

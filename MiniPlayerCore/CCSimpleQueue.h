@@ -42,7 +42,7 @@ public:
 	bool push(T* n) {
 		if (m_size < m_max_size) {
 			auto node = m_stack.pop();
-			assert(node);
+			Assert(node);
 			m_size++;
 			if (!m_first)
 				m_first = node;
@@ -60,7 +60,7 @@ public:
 	bool push_front(T* n) {
 		if (m_size < m_max_size) {
 			auto node = m_stack.pop();
-			assert(node);
+			Assert(node);
 
 			m_size++;
 			node->next = m_first;
@@ -130,7 +130,7 @@ public:
 			return m_end;
 		}
 
-		assert(node->prev || node->next);
+		Assert(node->prev || node->next);
 
 		auto next = node->next;
 
@@ -154,7 +154,7 @@ public:
 		for (auto it = begin(); it; )
 			it = erase(it);
 
-		assert(m_size == 0);
+		Assert(m_size == 0);
 
 		m_size = 0;
 		m_first = nullptr;
@@ -170,7 +170,7 @@ public:
 		return m_size == 0;
 	}
 	void increase(int size) {
-		assert(size > 0);
+		Assert(size > 0);
 		
 		m_stack.increase(size);
 		for (int i = 0; i < size; i++)

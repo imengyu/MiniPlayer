@@ -36,6 +36,14 @@ void CCVideoPlayer::DoSetVideoState(CCVideoState state) {
   setVideoStateLock.unlock();
 }
 
+std::string CCVideoPlayer::GetAvError(int code)
+{
+  char errBuf[128];
+  if (av_strerror(code, errBuf, sizeof(errBuf)) == 0)
+    return StringHelper::FormatString("%s (%d)", errBuf, code);
+  return StringHelper::FormatString("Unknow code: %d", code);
+}
+
 //播放器公共方法
 //**************************
 
@@ -214,8 +222,8 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     else
       ret = av_seek_frame(formatContext, videoIndex, seekPosVideo, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
     if (ret != 0) {
-      LOGEF("av_seek_frame video failed : %d", ret);
-      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("av_seek_frame video failed : %d", ret).c_str()); 
+      LOGEF("av_seek_frame video failed : %s", GetAvError(ret).c_str());
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("av_seek_frame video failed : %s", GetAvError(ret).c_str()).c_str());
       playerSeeking = false;
       return false;
     }
@@ -229,7 +237,7 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
       ret = av_seek_frame(formatContext, audioIndex, seekPosAudio,
                               (uint) AVSEEK_FLAG_BACKWARD | (uint) AVSEEK_FLAG_ANY);
       if (ret != 0)
-          LOGEF("av_seek_frame audio failed : %d", ret);
+          LOGEF("av_seek_frame audio failed : %s", GetAvError(ret).c_str());
       else
           avcodec_flush_buffers(audioCodecContext);//清空缓存数据
   }
@@ -363,11 +371,8 @@ bool CCVideoPlayer::InitDecoder() {
   //打开视频数据源
   int openState = avformat_open_input(&formatContext, currentFile.c_str(), nullptr, nullptr);
   if (openState < 0) {
-    char errBuf[128];
-    if (av_strerror(openState, errBuf, sizeof(errBuf)) == 0) {
-      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("Failed to open input file, error : %s", errBuf).c_str());
-      LOGEF("InitDecoder: Failed to open input file, error : %s", errBuf);
-    }
+    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("Failed to open input file, error : %s", GetAvError(openState).c_str()).c_str());
+    LOGEF("InitDecoder: Failed to open input file, error : %s", GetAvError(openState).c_str());
     goto INIT_FAIL_CLEAN;
   }
   //为分配的AVFormatContext 结构体中填充数据
@@ -449,8 +454,8 @@ bool CCVideoPlayer::InitDecoder() {
   //更具指定的编码器值填充编码器上下文
   ret = avcodec_parameters_to_context(videoCodecContext, codecParameters);
   if (ret < 0) {
-    LOGEF("InitDecoder: avcodec_parameters_to_context videoCodecContext failed : %d", ret);
-    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_to_context videoCodecContext failed : %d", ret).c_str());
+    LOGEF("InitDecoder: avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str());
+    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
     goto INIT_FAIL_CLEAN;
   }
 
@@ -486,8 +491,8 @@ bool CCVideoPlayer::InitDecoder() {
   ret = avcodec_open2(videoCodecContext, videoCodec, nullptr);
   //通过所给的编解码器初始化编解码器上下文
   if (ret < 0) {
-    LOGEF("InitDecoder: avcodec_open2 videoCodecContext failed : %d", ret);
-    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_open2 videoCodecContext failed : %d", ret).c_str());
+    LOGEF("InitDecoder: avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str());
+    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
     goto INIT_FAIL_CLEAN;
   }
 
@@ -512,13 +517,13 @@ bool CCVideoPlayer::InitDecoder() {
     //更具指定的编码器值填充编码器上下文
     ret = avcodec_parameters_to_context(audioCodecContext, codecParameters);
     if (ret < 0) {
-      LOGWF("InitDecoder: avcodec_parameters_to_context audioCodecContext failed : %d", ret);
+      LOGWF("InitDecoder: avcodec_parameters_to_context audioCodecContext failed : %s", GetAvError(ret).c_str());
       goto AUDIO_INIT_DONE;
     }
     ret = avcodec_open2(audioCodecContext, audioCodec, nullptr);
     //通过所给的编解码器初始化编解码器上下文
     if (ret < 0) {
-      LOGWF("InitDecoder: avcodec_open2 audioCodecContext failed : %d", ret);
+      LOGWF("InitDecoder: avcodec_open2 audioCodecContext failed : %s", GetAvError(ret).c_str());
       goto AUDIO_INIT_DONE;
     }
 
@@ -736,7 +741,7 @@ void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
         self->DoSetVideoState(CCVideoState::Ended);
 
         self->CallPlayerEventCallback(PLAYER_EVENT_PLAY_END);
-        LOGIF("PlayerWorkerThread: decodeState -> Finished pos: %d dur: %d", pos, dur);
+        LOGIF("PlayerWorkerThread: decodeState -> Finished pos/dur: %d/%d", pos, dur);
       }
     }
     Sleep(50);
@@ -807,7 +812,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
           if (!seeked) {
             ret = av_seek_frame(formatContext, -1, formatContext->start_time, 0);
             if (ret < 0)
-              LOGEF("DecoderWorkerThread : av_seek_frame failed : %d", ret);
+              LOGEF("DecoderWorkerThread : av_seek_frame failed : %s", GetAvError(ret).c_str());
             seeked = true;
           }
         }
@@ -821,7 +826,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
       av_usleep(100);
     }
     else {
-      LOGEF("DecoderWorkerThread : av_read_frame failed : %d", ret);
+      LOGEF("DecoderWorkerThread : av_read_frame failed : %s", GetAvError(ret).c_str());
       decodeQueue.ReleasePacket(avPacket);
       decodeState = CCDecodeState::FinishedWithError;
       break;
@@ -880,7 +885,7 @@ void* CCVideoPlayer::DecoderVideoThread() {
     }
     else if (ret != 0) {
       decodeQueue.ReleasePacket(packet);
-      LOGEF("DecoderVideoThread : avcodec_send_packet failed : %d", ret);
+      LOGEF("DecoderVideoThread : avcodec_send_packet failed : %s", GetAvError(ret).c_str());
       break;
     }
 
@@ -892,7 +897,7 @@ void* CCVideoPlayer::DecoderVideoThread() {
       break;
     do {
       ret = avcodec_receive_frame(videoCodecContext, frame);
-      if (ret == 0) {
+      if (ret >= 0) {
 
         //硬件加速帧的数据处理
         if (frame->format == hw_pix_fmt) {
@@ -901,7 +906,7 @@ void* CCVideoPlayer::DecoderVideoThread() {
           if ((ret = av_hwframe_transfer_data(sw_frame, frame, 0)) < 0) {
             //失败
             decodeQueue.ReleaseFrame(sw_frame);
-            LOGEF("DecoderVideoThread : av_hwframe_transfer_data failed : %d", ret);
+            LOGEF("DecoderVideoThread : av_hwframe_transfer_data failed : %s", GetAvError(ret).c_str());
             continue;
           }
           else {
@@ -922,7 +927,7 @@ void* CCVideoPlayer::DecoderVideoThread() {
       else {
         decodeQueue.ReleaseFrame(frame);
         if (ret != AVERROR(EAGAIN))
-          LOGEF("DecoderVideoThread : avcodec_receive_frame failed : %d", ret);
+          LOGEF("DecoderVideoThread : avcodec_receive_frame failed : %s", GetAvError(ret).c_str());
       }
     } while (ret == 0);
 
@@ -981,7 +986,7 @@ void* CCVideoPlayer::DecoderAudioThread() {
       goto RECEIVE;
     }
     else if (ret != 0) {
-      LOGEF("DecoderAudioThread : avcodec_send_packet failed : %d", ret);
+      LOGEF("DecoderAudioThread : avcodec_send_packet failed : %s", GetAvError(ret).c_str());
       break;
     }
 
@@ -1001,7 +1006,7 @@ void* CCVideoPlayer::DecoderAudioThread() {
       else {
         decodeQueue.ReleaseFrame(frame);
         if (ret != AVERROR(EAGAIN))
-          LOGEF("DecoderAudioThread : avcodec_receive_frame failed : %d", ret);
+          LOGEF("DecoderAudioThread : avcodec_receive_frame failed : %s", GetAvError(ret).c_str());
       }
     } while (ret == 0);
   }
@@ -1080,13 +1085,13 @@ void CCVideoPlayer::FFmpegLogFunc(void* ptr, int level, const char* fmt, va_list
 
 void CCVideoPlayer::SetLastError(int code, const wchar_t* errmsg)
 {
-  LOGEF("CCVideoPlayer Error: %d, %s", code, StringHelper::UnicodeToAnsi(errmsg).c_str());
+  LOGEF("CCVideoPlayer Error: %s (%d)", StringHelper::UnicodeToAnsi(errmsg).c_str(), code);
   lastErrorMessage = errmsg ? errmsg : L"";
   lastErrorCode = code;
 }
 void CCVideoPlayer::SetLastError(int code, const char* errmsg)
 {
-  LOGEF("CCVideoPlayer Error: %d, %s", code, errmsg);
+  LOGEF("CCVideoPlayer Error: %s (%d)", errmsg, code);
   lastErrorMessage = errmsg ? StringHelper::AnsiToUnicode(errmsg) : L"";
   lastErrorCode = code;
 }

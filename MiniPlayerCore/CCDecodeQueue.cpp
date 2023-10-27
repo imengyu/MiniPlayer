@@ -3,6 +3,7 @@
 //
 
 #include "pch.h"
+#include "DbgHelper.h"
 #include "CCDecodeQueue.h"
 #include "CCVideoPlayer.h"
 #include "Logger.h"
@@ -46,7 +47,7 @@ void CCDecodeQueue::Destroy() {
 void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
   audioFrameQueueRequestLock.lock();
 
-  assert(audioQueue.push(pkt));
+  Assert(audioQueue.push(pkt));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -66,7 +67,7 @@ AVPacket* CCDecodeQueue::AudioDequeue() {
 void CCDecodeQueue::AudioQueueBack(AVPacket* packet) {
   audioFrameQueueRequestLock.lock();
 
-  assert(audioQueue.push(packet));
+  Assert(audioQueue.push(packet));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -97,7 +98,7 @@ AVPacket* CCDecodeQueue::VideoDequeue() {
 void CCDecodeQueue::VideoQueueBack(AVPacket* packet) {
   videoFrameQueueRequestLock.lock();
 
-  assert(videoQueue.push_front(packet));
+  Assert(videoQueue.push_front(packet));
 
   videoFrameQueueRequestLock.unlock();
 }
@@ -125,7 +126,7 @@ AVFrame* CCDecodeQueue::VideoFrameDequeue() {
 void CCDecodeQueue::VideoFrameEnqueue(AVFrame* frame) {
   videoFrameQueueRequestLock.lock();
 
-  assert(videoFrameQueue.push(frame));
+  Assert(videoFrameQueue.push(frame));
 
   videoFrameQueueRequestLock.unlock();
 }
@@ -146,7 +147,7 @@ AVFrame* CCDecodeQueue::AudioFrameDequeue() {
 void CCDecodeQueue::AudioFrameEnqueue(AVFrame* frame) {
   audioFrameQueueRequestLock.lock();
 
-  assert(audioFrameQueue.push(frame));
+  Assert(audioFrameQueue.push(frame));
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -250,6 +251,7 @@ void CCDecodeQueue::AllocPacketPool(int size) {
       LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
       break;
     }
+    Assert(allocedPacket < 1024);
   }
 }
 void CCDecodeQueue::ReleasePacketPool() {
@@ -259,7 +261,7 @@ void CCDecodeQueue::ReleasePacketPool() {
     freePacket++;
   }
 
-  assert(freePacket == allocedPacket);
+  Assert(freePacket == allocedPacket);
   allocedPacket = 0;
 
   packetPool.clear();
@@ -307,6 +309,7 @@ void CCDecodeQueue::AllocFramePool(int size) {
       LOGEF("Frame Pool size too large! Size: %d", framePool.size());
       break;
     }
+    Assert(allocedFrame < 1024);
   }
 }
 void CCDecodeQueue::ReleaseFramePool() {
@@ -316,7 +319,7 @@ void CCDecodeQueue::ReleaseFramePool() {
     freeFrame++;
   }
 
-  assert(freeFrame == allocedFrame);
+  Assert(freeFrame == allocedFrame);
   allocedFrame = 0;
 
   framePool.clear();

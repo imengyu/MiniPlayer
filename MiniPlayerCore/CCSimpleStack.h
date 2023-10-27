@@ -1,5 +1,5 @@
 #pragma once
-#include <assert.h>
+#include "DbgHelper.h"
 
 template <typename T>
 class CCSimpleStack
@@ -59,12 +59,12 @@ public:
 		return m_size == 0;
 	}
 	void increase(int size) {
-		assert(size > 0);
+		Assert(size > 0);
 
 		auto old_max_size = m_max_size;
 		m_stack = (T**)realloc(m_stack, (old_max_size + size) * sizeof(T*));
 
-		assert(m_stack);
+		Assert(m_stack);
 
 		m_max_size = old_max_size + size;
 		memset(m_stack + old_max_size, 0, size * sizeof(T*));
