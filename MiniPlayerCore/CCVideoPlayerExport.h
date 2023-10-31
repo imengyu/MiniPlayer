@@ -23,6 +23,7 @@
 #define PLAYER_EVENT_INIT_DECODER_DONE    5 //初始化解码器完成
 #define PLAYER_EVENT_RENDER_DATA_CALLBACK 6 //渲染回调，仅在 CCVideoPlayerInitParams.UseRenderCallback = true 时触发此事件。
 #define PLAYER_EVENT_SEEK_DONE            7 //跳帧完成
+#define PLAYER_EVENT_INIT_HW_DECODER_FAIL 8 //初始化硬件解码失败，转为软解
 
 
 //解码器状态值

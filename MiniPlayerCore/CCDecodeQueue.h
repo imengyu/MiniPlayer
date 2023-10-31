@@ -27,10 +27,12 @@ public:
 
     void AllocPacketPool(int size);
     void ReleasePacketPool();
+    void ClearPacketPool();
     void ReleasePacket(AVPacket *pkt);
     AVPacket* RequestPacket();
 
     void ReleaseFramePool();
+    void ClearFramePool();
     void AllocFramePool(int size);
     AVFrame *RequestFrame();
     void ReleaseFrame(AVFrame *frame);

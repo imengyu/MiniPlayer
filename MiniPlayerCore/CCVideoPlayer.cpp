@@ -35,7 +35,6 @@ void CCVideoPlayer::DoSetVideoState(CCVideoState state) {
   videoState = state;
   setVideoStateLock.unlock();
 }
-
 std::string CCVideoPlayer::GetAvError(int code)
 {
   char errBuf[128];
@@ -55,14 +54,10 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "OpenVideo: Player is loading, please wait a second");
     return false;
   }  
-  if (videoState == CCVideoState::Closing) {
-    SetLastError(VIDEO_PLAYER_ERROR_NOW_IS_LOADING, "OpenVideo: Player is closing");
-    return false;
-  }
-  if (videoState > CCVideoState::NotOpen) {
-    SetLastError(VIDEO_PLAYER_ERROR_ALREADY_OPEN, "A video has been opened. Please close it first");
-    return false;
-  }
+  if (videoState == CCVideoState::Closing)
+    WaitCloseVideo();
+  if (videoState > CCVideoState::NotOpen)
+    CloseVideo();
 
   currentFile = filePath;
   DoSetVideoState(CCVideoState::Loading);
@@ -77,10 +72,10 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     return false;
   }
 
-  decodeQueue.Init(&externalData);
-
   CallPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
   LOGD("DoOpenVideo: InitDecoder done");
+
+  decodeQueue.Reset();
 
   if (!render->Init(&externalData)) {
     DoSetVideoState(CCVideoState::Failed);
@@ -119,7 +114,6 @@ bool CCVideoPlayer::CloseVideo() {
   //释放
   DestroyDecoder();
   render->Destroy();
-  decodeQueue.Destroy();
 
   DoSetVideoState(CCVideoState::NotOpen);
   closeDoneEvent.NotifyOne();
@@ -483,8 +477,10 @@ bool CCVideoPlayer::InitDecoder() {
 
     //初始化硬件解码
     if (InitHwDecoder(videoCodecContext, type) < 0) {
-      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "InitHwDecoder failed");
-      goto INIT_FAIL_CLEAN;
+      LOGW("InitDecoder: InitHwDecoder failed, hardware decoder disabled");
+      type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
+      videoCodecContext->get_format = nullptr;
+      CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
     }
   }
 
@@ -1056,6 +1052,8 @@ void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
   externalData.DecodeQueue = &decodeQueue;
   externalData.Player = this;
 
+  decodeQueue.Init(&externalData);
+
   StartWorkerThread();
 
   //av_log
@@ -1065,6 +1063,8 @@ void CCVideoPlayer::Init(CCVideoPlayerInitParams* initParams) {
 }
 void CCVideoPlayer::Destroy() {
   StopWorkerThread();
+
+  decodeQueue.Destroy();
 
   if (render) {
     render->Destroy();

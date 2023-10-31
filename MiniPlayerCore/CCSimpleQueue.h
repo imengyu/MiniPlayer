@@ -20,12 +20,7 @@ public:
 		alloc(max_size);
 	}
 	~CCSimpleQueue() {
-		clear();
-		for (int i = 0; i < m_max_size; i++)
-			delete m_stack.pop();
-		m_stack.clear();
-		m_max_size = 0;
-		m_size = 0;
+		release();
 	}
 
 	bool alloc(int max_size) {
@@ -36,6 +31,14 @@ public:
 		for (int i = 0; i < m_max_size; i++)
 			m_stack.push(new CCSimpleQueueNode<T>());
 		return true;
+	}
+	bool release() {
+		clear();
+		for (void* it = m_stack.pop(); it; it = m_stack.pop())
+			delete it;
+		m_max_size = 0;
+		m_size = 0;
+		return m_stack.release();
 	}
 
 	//ÍÆÈëÄ©Î²

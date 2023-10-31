@@ -11,9 +11,7 @@ public:
 		alloc(max_size);
 	}
 	~CCSimpleStack() {
-		free(m_stack);
-		m_max_size = 0;
-		m_size = 0;
+		release();
 	}
 
 	bool alloc(int max_size) {
@@ -26,6 +24,16 @@ public:
 		m_size = 0;
 		memset(m_stack, 0, sizeof(T*) * max_size);
 		return true;
+	}
+	bool release() {
+		m_max_size = 0;
+		m_size = 0;
+		if (m_stack) {
+			free(m_stack);
+			m_stack = nullptr;
+			return true;
+		}
+		return false;
 	}
 
 	bool push(T* n) {
@@ -71,7 +79,7 @@ public:
 	}
 
 private:
-	int m_size;
-	int m_max_size;
-	T** m_stack;
+	int m_size = 0;
+	int m_max_size = 0;
+	T** m_stack = nullptr;
 };

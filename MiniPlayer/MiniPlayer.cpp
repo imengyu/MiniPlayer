@@ -102,22 +102,11 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		auto playData = (PlayVideoData*)(customData);
 		switch (message)
 		{
-		case PLAYER_EVENT_OPEN_DONE: {
-			playData->openSuccess = true;
-			player->SetVideoState(CCVideoState::Playing);
-			break;
-		}
-		case PLAYER_EVENT_OPEN_FAIED: {
-			playData->openSuccess = false;
-			playData->quit = true;
-			wprintf(L"OpenVideo failed: (%d) %s", player->GetLastError(), player->GetLastErrorMessage());
-			break;
-		}
 		case PLAYER_EVENT_CLOSED: {
 			playData->openSuccess = false;
 			break;
 		}
-		case PLAYER_EVENT_PLAY_DONE: {
+		case PLAYER_EVENT_PLAY_END: {
 			playData->openSuccess = false;
 			break;
 		}
@@ -134,8 +123,7 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		wprintf(L"OpenVideo failed: (%d) %s", player->GetLastError(), player->GetLastErrorMessage());
 		goto DESTROY;
 	}
-
-	player->WaitOpenVideo();
+	player->SetVideoState(CCVideoState::Playing);
 
 	//初始化环境
 	SDL_Init(0);

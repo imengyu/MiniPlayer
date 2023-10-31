@@ -27,16 +27,14 @@ void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
   }
 }
 void CCDecodeQueue::Reset() {
-
+  if (initState)
+    ClearAll();
 }
 void CCDecodeQueue::Destroy() {
 
   if (initState) {
     initState = false;
-
     ClearAll();
-
-
     ReleasePacketPool();
     ReleaseFramePool();
   }
@@ -254,7 +252,7 @@ void CCDecodeQueue::AllocPacketPool(int size) {
     Assert(allocedPacket < 1024);
   }
 }
-void CCDecodeQueue::ReleasePacketPool() {
+void CCDecodeQueue::ClearPacketPool() {
   int freePacket = 0;
   for (auto packet = packetPool.begin(); packet; packet = packet->next) {
     av_packet_free(&packet->value);
@@ -265,6 +263,10 @@ void CCDecodeQueue::ReleasePacketPool() {
   allocedPacket = 0;
 
   packetPool.clear();
+}
+void CCDecodeQueue::ReleasePacketPool() {
+  ClearPacketPool();
+  packetPool.release();
 }
 
 void CCDecodeQueue::ReleaseFrame(AVFrame* frame) {
@@ -312,7 +314,7 @@ void CCDecodeQueue::AllocFramePool(int size) {
     Assert(allocedFrame < 1024);
   }
 }
-void CCDecodeQueue::ReleaseFramePool() {
+void CCDecodeQueue::ClearFramePool() {
   int freeFrame = 0;
   for (auto frame = framePool.begin(); frame; frame = frame->next) {
     av_frame_free(&frame->value);
@@ -321,6 +323,8 @@ void CCDecodeQueue::ReleaseFramePool() {
 
   Assert(freeFrame == allocedFrame);
   allocedFrame = 0;
-
-  framePool.clear();
+}
+void CCDecodeQueue::ReleaseFramePool() {
+  ClearFramePool();
+  framePool.release();
 }

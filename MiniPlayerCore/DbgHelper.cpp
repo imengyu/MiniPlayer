@@ -6,6 +6,7 @@
 void DbgAssert(int condition, const char* file, int line, const char* message)
 {
 	if (!condition) {
+		OutputDebugStringA(StringHelper::FormatString("Assertion failed! %s at %s line %d", message, file, line).c_str());
 		throw new std::exception(StringHelper::FormatString("Assertion failed! %s at %s line %d", message, file, line).c_str());
 	}
 }
