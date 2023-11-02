@@ -265,12 +265,10 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     return false;
   }
 
-  if (!swsContext && RecreateSwsContext()) {
-    noMoreVideoFrame = true;
-    return false;
-  }
-
   noMoreVideoFrame = false;
+
+  if (!swsContext && RecreateSwsContext())
+    return false;
 
   //时钟
   AVRational time_base = externalData->VideoTimeBase;

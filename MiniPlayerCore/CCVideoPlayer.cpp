@@ -453,6 +453,8 @@ bool CCVideoPlayer::InitDecoder() {
     goto INIT_FAIL_CLEAN;
   }
 
+  hw_can_use = false;
+
   //初始化硬件解码
   if (type != AVHWDeviceType::AV_HWDEVICE_TYPE_NONE) {
 
@@ -481,6 +483,9 @@ bool CCVideoPlayer::InitDecoder() {
       type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
       videoCodecContext->get_format = nullptr;
       CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
+    }
+    else {
+      hw_can_use = true;
     }
   }
 
@@ -1040,7 +1045,9 @@ AVPixelFormat CCVideoPlayer::GetVideoPixelFormat()
 {
   return hw_frame_pix_fmt != AVPixelFormat::AV_PIX_FMT_NONE ? 
     hw_frame_pix_fmt : (
-      videoCodecContext ? videoCodecContext->pix_fmt : AVPixelFormat::AV_PIX_FMT_NONE
+      hw_can_use ? 
+        AVPixelFormat::AV_PIX_FMT_NV12 :
+        (videoCodecContext ? videoCodecContext->pix_fmt : AVPixelFormat::AV_PIX_FMT_NONE)
     );
 }
 

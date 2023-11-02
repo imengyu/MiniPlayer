@@ -108,6 +108,7 @@ protected:
     AVBufferRef* hw_device_ctx = nullptr;
     enum AVPixelFormat hw_pix_fmt = AVPixelFormat::AV_PIX_FMT_NONE;
     enum AVPixelFormat hw_frame_pix_fmt = AVPixelFormat::AV_PIX_FMT_NONE;
+    bool hw_can_use = false;
 
     static AVPixelFormat GetHwFormat(AVCodecContext* ctx, const AVPixelFormat* pix_fmts);
     int InitHwDecoder(AVCodecContext* ctx, const AVHWDeviceType type);
