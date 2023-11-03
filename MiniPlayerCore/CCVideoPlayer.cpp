@@ -77,7 +77,7 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
 
   decodeQueue.Reset();
 
-  if (!render->Init(&externalData)) {
+  if (!pushMode && !render->Init(&externalData)) {
     DoSetVideoState(CCVideoState::Failed);
     LOGD("DoOpenVideo: Init render failed");
     return false;
@@ -274,6 +274,7 @@ int64_t CCVideoPlayer::GetVideoPos() {
   //else
     return (int64_t)(render->GetCurVideoPts() * av_q2d(formatContext->streams[videoIndex]->time_base) * 1000);
 }
+bool CCVideoPlayer::GetVideoPush() { return pushMode; }
 bool CCVideoPlayer::GetVideoLoop() { return loop; }
 CCVideoState CCVideoPlayer::GetVideoState() { 
   if (setVideoStateLock.try_lock())
@@ -292,6 +293,18 @@ void CCVideoPlayer::SetVideoLoop(bool loop)
 {
   this->loop = loop;
 }
+bool CCVideoPlayer::SetVideoPush(bool push, const char* type, const char* address)
+{
+  if (videoState != CCVideoState::NotOpen) {
+    SetLastError(VIDEO_PLAYER_ERROR_CAN_NOTCALL_THIS_TIME, "SetVideoPush: Can only call when player not open");
+    return false;
+  }
+
+  pushMode = push;
+  pushAddress = address;
+  pushType = type;
+  return true;
+}
 int CCVideoPlayer::GetVideoVolume() { return render->GetVolume(); }
 void CCVideoPlayer::GetVideoSize(int* w, int* h) {
   if (formatContext) {
@@ -308,14 +321,17 @@ void CCVideoPlayer::StartAll() {
   decoderAudioFinish = audioIndex == -1;
   decoderVideoFinish = false;
   StartDecoderThread();
-  render->Start();
+
+  if (!pushMode)
+    render->Start();
 }
 void CCVideoPlayer::StopAll() {
   if (videoState == CCVideoState::Paused || videoState == CCVideoState::Ended)
     return;
   DoSetVideoState(CCVideoState::Paused);
   StopDecoderThread();
-  render->Stop();
+  if (!pushMode)
+    render->Stop();
 }
 
 //解码器初始化与反初始化
@@ -366,13 +382,11 @@ bool CCVideoPlayer::InitDecoder() {
   int openState = avformat_open_input(&formatContext, currentFile.c_str(), nullptr, nullptr);
   if (openState < 0) {
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("Failed to open input file, error : %s", GetAvError(openState).c_str()).c_str());
-    LOGEF("InitDecoder: Failed to open input file, error : %s", GetAvError(openState).c_str());
     goto INIT_FAIL_CLEAN;
   }
   //为分配的AVFormatContext 结构体中填充数据
   if (avformat_find_stream_info(formatContext, nullptr) < 0) {
     SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "Failed to read the input video stream information");
-    LOGE("InitDecoder: Failed to read the input video stream information"); 
     goto INIT_FAIL_CLEAN;
   }
 
@@ -408,7 +422,6 @@ bool CCVideoPlayer::InitDecoder() {
   //无视频流
   if (videoIndex == -1) {
     SetLastError(VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM, "Not found video stream");
-    LOGE("InitDecoder: Not found video stream!");
     goto INIT_FAIL_CLEAN;
   }
 
@@ -425,128 +438,189 @@ bool CCVideoPlayer::InitDecoder() {
   externalData.CurrentFps = av_q2d(formatContext->streams[videoIndex]->r_frame_rate);
   if (externalData.CurrentFps < InitParams.LimitFps) externalData.CurrentFps = InitParams.LimitFps;
 
-  //初始化视频解码器
+  //推流模式
   //***********************************
 
-  codecParameters = formatContext->streams[videoIndex]->codecpar;
-  videoCodec = avcodec_find_decoder(codecParameters->codec_id);
+  if (pushMode) {
+    LOGD("InitDecoder: push mode");
 
-  if (videoCodec == nullptr) {
-    LOGE("InitDecoder: Not find video decoder");
-    SetLastError(VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT, "Not find video decoder");
-    goto INIT_FAIL_CLEAN;
-  }
+    //创建输出上下文
+    ret = avformat_alloc_output_context2(&outputContext, NULL, pushType.c_str(), pushAddress.c_str());
+    if (ret < 0) {
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avformat_alloc_output_context2 failed : %s", GetAvError(ret).c_str()).c_str());
+      goto INIT_FAIL_CLEAN;
+    }
 
-  //通过解码器分配(并用  默认值   初始化)一个解码器context
-  videoCodecContext = avcodec_alloc_context3(videoCodec);
-  if (videoCodecContext == nullptr) {
-    LOGE("InitDecoder: avcodec_alloc_context3 for videoCodecContext failed");
-    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_alloc_context3 for videoCodecContext failed");
-    goto INIT_FAIL_CLEAN;
-  }
-
-  //更具指定的编码器值填充编码器上下文
-  ret = avcodec_parameters_to_context(videoCodecContext, codecParameters);
-  if (ret < 0) {
-    LOGEF("InitDecoder: avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str());
-    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
-    goto INIT_FAIL_CLEAN;
-  }
-
-  hw_can_use = false;
-
-  //初始化硬件解码
-  if (type != AVHWDeviceType::AV_HWDEVICE_TYPE_NONE) {
-
-    //遍历所有编解码器支持的硬件解码配置
-    for (int i = 0;; i++) {
-      const AVCodecHWConfig* config = avcodec_get_hw_config(videoCodec, i);
-      if (!config) {
-        LOGEF("InitDecoder: Decoder %s does not support device type %s.", videoCodec->name, av_hwdevice_get_type_name(type));
-        SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_get_hw_config failed");
+    //配置输出流
+    for (size_t i = 0; i < formatContext->nb_streams; i++) {
+      //创建一个新的流
+      auto outCodec = avcodec_find_decoder(formatContext->streams[i]->codecpar->codec_id);
+      auto outStream = avformat_new_stream(outputContext, outCodec);
+      if (!outStream) {
+        SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avformat_new_stream failed : %s", GetAvError(ret).c_str()).c_str());
         goto INIT_FAIL_CLEAN;
       }
-      if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX && config->device_type == type) {
-        //把硬件支持的像素格式设置进去
-        hw_pix_fmt = config->pix_fmt;
-        break;
+      //复制配置信息
+      ret = avcodec_parameters_copy(outStream->codecpar, formatContext->streams[i]->codecpar);
+      if (ret < 0) {
+        SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_copy failed : %s", GetAvError(ret).c_str()).c_str());
+        goto INIT_FAIL_CLEAN;
       }
+
+      outStream->codecpar->codec_tag = 0;
     }
 
-    //告诉解码器codec自己的目标像素格式是什么
-    videoCodecContext->opaque = this;
-    videoCodecContext->get_format = GetHwFormat;
+    //打开io
+    ret = avio_open(&outputContext->pb, pushAddress.c_str(), AVIO_FLAG_WRITE);
+    if (ret < 0) {
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avio_open failed : %s", GetAvError(ret).c_str()).c_str());
+      goto INIT_FAIL_CLEAN;
+    }
+    //写文件头（Write file header）
+    ret = avformat_write_header(outputContext, NULL);
+    if (ret < 0) {
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avformat_write_header failed : %s", GetAvError(ret).c_str()).c_str());
+      goto INIT_FAIL_CLEAN;
+    }
 
-    //初始化硬件解码
-    if (InitHwDecoder(videoCodecContext, type) < 0) {
-      LOGW("InitDecoder: InitHwDecoder failed, hardware decoder disabled");
-      type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
-      videoCodecContext->get_format = nullptr;
-      CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
-    }
-    else {
-      hw_can_use = true;
-    }
+    LOGD("InitDecoder: push mode init done");
+
+    pushFrameIndex = 0;
+    decodeState = CCDecodeState::Ready;
+    return true;
   }
 
-  ret = avcodec_open2(videoCodecContext, videoCodec, nullptr);
-  //通过所给的编解码器初始化编解码器上下文
-  if (ret < 0) {
-    LOGEF("InitDecoder: avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str());
-    SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
-    goto INIT_FAIL_CLEAN;
-  }
-
-  //初始化音频解码器
+  //播放模式
   //***********************************
 
-  if (audioIndex > -1) {
+  else {
 
-    codecParameters = formatContext->streams[audioIndex]->codecpar;
-    audioCodec = avcodec_find_decoder(codecParameters->codec_id);
-    if (audioCodec == nullptr) {
-      LOGW("InitDecoder: Not find audio decoder");
-      goto AUDIO_INIT_DONE;
+    //初始化视频解码器
+    //***********************************
+
+
+    codecParameters = formatContext->streams[videoIndex]->codecpar;
+    videoCodec = avcodec_find_decoder(codecParameters->codec_id);
+
+    if (videoCodec == nullptr) {
+      LOGE("InitDecoder: Not find video decoder");
+      SetLastError(VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT, "Not find video decoder");
+      goto INIT_FAIL_CLEAN;
     }
+
     //通过解码器分配(并用  默认值   初始化)一个解码器context
-    audioCodecContext = avcodec_alloc_context3(audioCodec);
-    if (audioCodecContext == nullptr) {
-      LOGW("avcodec_alloc_context3 for audioCodecContext failed");
-      goto AUDIO_INIT_DONE;
+    videoCodecContext = avcodec_alloc_context3(videoCodec);
+    if (videoCodecContext == nullptr) {
+      LOGE("InitDecoder: avcodec_alloc_context3 for videoCodecContext failed");
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_alloc_context3 for videoCodecContext failed");
+      goto INIT_FAIL_CLEAN;
     }
 
     //更具指定的编码器值填充编码器上下文
-    ret = avcodec_parameters_to_context(audioCodecContext, codecParameters);
+    ret = avcodec_parameters_to_context(videoCodecContext, codecParameters);
     if (ret < 0) {
-      LOGWF("InitDecoder: avcodec_parameters_to_context audioCodecContext failed : %s", GetAvError(ret).c_str());
-      goto AUDIO_INIT_DONE;
+      LOGEF("InitDecoder: avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str());
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_parameters_to_context videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
+      goto INIT_FAIL_CLEAN;
     }
-    ret = avcodec_open2(audioCodecContext, audioCodec, nullptr);
+
+    hw_can_use = false;
+
+    //初始化硬件解码
+    if (type != AVHWDeviceType::AV_HWDEVICE_TYPE_NONE) {
+
+      //遍历所有编解码器支持的硬件解码配置
+      for (int i = 0;; i++) {
+        const AVCodecHWConfig* config = avcodec_get_hw_config(videoCodec, i);
+        if (!config) {
+          LOGEF("InitDecoder: Decoder %s does not support device type %s.", videoCodec->name, av_hwdevice_get_type_name(type));
+          SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_get_hw_config failed");
+          goto INIT_FAIL_CLEAN;
+        }
+        if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX && config->device_type == type) {
+          //把硬件支持的像素格式设置进去
+          hw_pix_fmt = config->pix_fmt;
+          break;
+        }
+      }
+
+      //告诉解码器codec自己的目标像素格式是什么
+      videoCodecContext->opaque = this;
+      videoCodecContext->get_format = GetHwFormat;
+
+      //初始化硬件解码
+      if (InitHwDecoder(videoCodecContext, type) < 0) {
+        LOGW("InitDecoder: InitHwDecoder failed, hardware decoder disabled");
+        type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
+        videoCodecContext->get_format = nullptr;
+        CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
+      }
+      else {
+        hw_can_use = true;
+      }
+    }
+
+    ret = avcodec_open2(videoCodecContext, videoCodec, nullptr);
     //通过所给的编解码器初始化编解码器上下文
     if (ret < 0) {
-      LOGWF("InitDecoder: avcodec_open2 audioCodecContext failed : %s", GetAvError(ret).c_str());
-      goto AUDIO_INIT_DONE;
+      LOGEF("InitDecoder: avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str());
+      SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, StringHelper::FormatString("avcodec_open2 videoCodecContext failed : %s", GetAvError(ret).c_str()).c_str());
+      goto INIT_FAIL_CLEAN;
     }
 
+    //初始化音频解码器
+    //***********************************
+
+    if (audioIndex > -1) {
+
+      codecParameters = formatContext->streams[audioIndex]->codecpar;
+      audioCodec = avcodec_find_decoder(codecParameters->codec_id);
+      if (audioCodec == nullptr) {
+        LOGW("InitDecoder: Not find audio decoder");
+        goto AUDIO_INIT_DONE;
+      }
+      //通过解码器分配(并用  默认值   初始化)一个解码器context
+      audioCodecContext = avcodec_alloc_context3(audioCodec);
+      if (audioCodecContext == nullptr) {
+        LOGW("avcodec_alloc_context3 for audioCodecContext failed");
+        goto AUDIO_INIT_DONE;
+      }
+
+      //更具指定的编码器值填充编码器上下文
+      ret = avcodec_parameters_to_context(audioCodecContext, codecParameters);
+      if (ret < 0) {
+        LOGWF("InitDecoder: avcodec_parameters_to_context audioCodecContext failed : %s", GetAvError(ret).c_str());
+        goto AUDIO_INIT_DONE;
+      }
+      ret = avcodec_open2(audioCodecContext, audioCodec, nullptr);
+      //通过所给的编解码器初始化编解码器上下文
+      if (ret < 0) {
+        LOGWF("InitDecoder: avcodec_open2 audioCodecContext failed : %s", GetAvError(ret).c_str());
+        goto AUDIO_INIT_DONE;
+      }
+
+    }
+    else audioCodecContext = nullptr;
+
+  AUDIO_INIT_DONE:
+    LOGDF("InitDecoder: audioCodecContext->codec_id : %d", audioCodecContext ? audioCodecContext->codec_id : 0);
+    LOGDF("InitDecoder: videoCodecContext->codec_id : %d", videoCodecContext->codec_id);
+
+    externalData.StartTime = formatContext->start_time * 1000 / AV_TIME_BASE;
+
+    externalData.AudioCodecContext = audioCodecContext;
+    externalData.VideoCodecContext = videoCodecContext;
+    externalData.FormatContext = formatContext;
+
+    decodeState = CCDecodeState::Ready;
+    return true;
   }
-  else audioCodecContext = nullptr;
-
-AUDIO_INIT_DONE:
-  LOGDF("InitDecoder: audioCodecContext->codec_id : %d", audioCodecContext ? audioCodecContext->codec_id : 0);
-  LOGDF("InitDecoder: videoCodecContext->codec_id : %d", videoCodecContext->codec_id);
-
-  externalData.StartTime = formatContext->start_time * 1000 / AV_TIME_BASE;
-
-  externalData.AudioCodecContext = audioCodecContext;
-  externalData.VideoCodecContext = videoCodecContext;
-  externalData.FormatContext = formatContext;
-
-  decodeState = CCDecodeState::Ready;
-  return true;
 
 INIT_FAIL_CLEAN:
   if (formatContext)
     avformat_close_input(&formatContext);
+  if (outputContext)
+    avformat_close_input(&outputContext);
   if (videoCodecContext)
     avcodec_free_context(&videoCodecContext);
   if (audioCodecContext)
@@ -597,13 +671,16 @@ void CCVideoPlayer::StartDecoderThread() {
     decoderWorkerThread = new std::thread(DecoderWorkerThreadStub, this);
     decoderWorkerThread->detach();
   }
-  if (decoderVideoThread == nullptr) {
-    decoderVideoThread = new std::thread(DecoderVideoThreadStub, this);
-    decoderVideoThread->detach();
-  }
-  if (decoderAudioThread == nullptr) {
-    decoderAudioThread = new std::thread(DecoderAudioThreadStub, this);
-    decoderAudioThread->detach();
+
+  if (!pushMode) {
+    if (decoderVideoThread == nullptr) {
+      decoderVideoThread = new std::thread(DecoderVideoThreadStub, this);
+      decoderVideoThread->detach();
+    }
+    if (decoderAudioThread == nullptr) {
+      decoderAudioThread = new std::thread(DecoderAudioThreadStub, this);
+      decoderAudioThread->detach();
+    }
   }
 }
 void CCVideoPlayer::StopDecoderThread() {
@@ -615,15 +692,18 @@ void CCVideoPlayer::StopDecoderThread() {
     decoderWorkerThread = nullptr;
     decoderWorkerThreadDone.Wait();
   }
-  if (decoderVideoThread) {
-    delete decoderVideoThread;
-    decoderVideoThread = nullptr;
-    decoderVideoThreadDone.Wait();
-  }
-  if (decoderAudioThread) {
-    delete decoderAudioThread;
-    decoderAudioThread = nullptr;
-    decoderAudioThreadDone.Wait();
+
+  if (!pushMode) {
+    if (decoderVideoThread) {
+      delete decoderVideoThread;
+      decoderVideoThread = nullptr;
+      decoderVideoThreadDone.Wait();
+    }
+    if (decoderAudioThread) {
+      delete decoderAudioThread;
+      decoderAudioThread = nullptr;
+      decoderAudioThreadDone.Wait();
+    }
   }
 
   LOGD("StopDecoderThread: Done");
@@ -760,6 +840,8 @@ void* CCVideoPlayer::DecoderWorkerThread() {
   int ret;
   int start = 100;
   bool seeked = false;
+  long long startTime = av_gettime();
+
   LOGIF("DecoderWorkerThread : Start: [%s]", CCDecodeStateToString(decodeState));
 
   decoderWorkerThreadDone.Reset();
@@ -767,6 +849,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
     LOGI("DecoderWorkerThread : Start twice");
     return nullptr;
   }
+
 
   while (decodeState == CCDecodeState::Decoding) {
 
@@ -791,12 +874,64 @@ void* CCVideoPlayer::DecoderWorkerThread() {
     ret = av_read_frame(formatContext, avPacket);
     //等于0成功，其它失败
     if (ret == 0) {
-      if (avPacket->stream_index == audioIndex)
-        decodeQueue.AudioEnqueue(avPacket);//添加音频包至队列中
-      else if (avPacket->stream_index == videoIndex)
-        decodeQueue.VideoEnqueue(avPacket);//添加视频包至队列中
-      else
+
+      if (pushMode) {
+        //推流模式
+
+        //没有封装格式的裸流（例如H.264裸流）计算并写入AVPacket的PTS，DTS，duration等参数
+        if (avPacket->pts == AV_NOPTS_VALUE) {
+          //Write PTS
+          AVRational time_base1 = formatContext->streams[videoIndex]->time_base;
+          //Duration between 2 frames (us)
+          int64_t calc_duration = (int64_t)((double)AV_TIME_BASE / av_q2d(formatContext->streams[videoIndex]->r_frame_rate));
+          //Parameters
+          avPacket->pts = (int64_t)((double)(pushFrameIndex * calc_duration) / (double)(av_q2d(time_base1) * AV_TIME_BASE));
+          avPacket->dts = avPacket->pts;
+          avPacket->duration = (int64_t)((double)calc_duration / (double)(av_q2d(time_base1) * AV_TIME_BASE));
+        }
+
+        //计算转换时间戳 获取时间基数
+        AVRational itime = formatContext->streams[avPacket->stream_index]->time_base;
+        AVRational otime = outputContext->streams[avPacket->stream_index]->time_base;
+        avPacket->pts = av_rescale_q_rnd(avPacket->pts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
+        avPacket->dts = av_rescale_q_rnd(avPacket->dts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
+        //到这一帧经历了多长时间
+        avPacket->duration = av_rescale_q_rnd(avPacket->duration, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
+        avPacket->pos = -1;
+
+        //视频帧推送速度
+        if (avPacket->stream_index == videoIndex)
+        {
+          AVRational tb = formatContext->streams[avPacket->stream_index]->time_base;
+          //已经过去的时间
+          long long now = av_gettime() - startTime;
+          long long dts = 0;
+          dts = avPacket->dts * (int64_t)(1000 * 1000 * av_q2d(tb));
+          if (dts > now)
+            av_usleep((uint32_t)(dts - now));
+          pushFrameIndex++;
+        }
+
+        ret = av_interleaved_write_frame(outputContext, avPacket);
+
         decodeQueue.ReleasePacket(avPacket);
+
+        if (ret < 0) {
+          LOGEF("DecoderWorkerThread (Push) : av_interleaved_write_frame failed : %s", GetAvError(ret).c_str());
+          decodeQueue.ReleasePacket(avPacket);
+          decodeState = CCDecodeState::FinishedWithError;
+          break;
+        }
+      }
+      else {
+        //正常模式
+        if (avPacket->stream_index == audioIndex)
+          decodeQueue.AudioEnqueue(avPacket);//添加音频包至队列中
+        else if (avPacket->stream_index == videoIndex)
+          decodeQueue.VideoEnqueue(avPacket);//添加视频包至队列中
+        else
+          decodeQueue.ReleasePacket(avPacket);
+      }
       seeked = false;
     }
     else if (ret == AVERROR_EOF) {
@@ -804,8 +939,9 @@ void* CCVideoPlayer::DecoderWorkerThread() {
 
       //读取完成，但是可能还没有播放完成，等待播放完成后再执行操作
       if (
+        pushMode || (
         decodeQueue.VideoFrameQueueSize() == 0 && 
-        decodeQueue.AudioFrameQueueSize() == 0
+        decodeQueue.AudioFrameQueueSize() == 0)
       ) {
 
         //如果循环，则跳到第一帧播放

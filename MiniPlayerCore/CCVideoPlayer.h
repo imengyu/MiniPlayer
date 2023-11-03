@@ -43,7 +43,9 @@ public:
     bool SetVideoPos(int64_t pos);
     void SetVideoVolume(int vol);
     void SetVideoLoop(bool loop);
+    bool SetVideoPush(bool push, const char*, const char* address);
 
+    bool GetVideoPush();
     bool GetVideoLoop();
     CCVideoState GetVideoState();
     int64_t GetVideoLength();
@@ -92,6 +94,11 @@ protected:
     std::string lastErrorMessageUtf8;
     std::string currentFile;
     bool loop = false;
+    bool pushMode = false;
+    std::string pushType;
+    std::string pushAddress;
+    int32_t pushFrameIndex = 0;
+
 
     CCVideoPlayerEventCallback videoPlayerEventCallback = nullptr;
     void*videoPlayerEventCallbackData = nullptr;
@@ -104,6 +111,7 @@ protected:
     const AVCodec * videoCodec = nullptr;// 视频解码器
     AVCodecContext * audioCodecContext = nullptr;//解码器上下文
     AVCodecContext * videoCodecContext = nullptr;//解码器上下文
+    AVFormatContext* outputContext = NULL; //推流上下文
 
     AVBufferRef* hw_device_ctx = nullptr;
     enum AVPixelFormat hw_pix_fmt = AVPixelFormat::AV_PIX_FMT_NONE;

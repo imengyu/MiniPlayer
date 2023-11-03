@@ -5,15 +5,16 @@
 //播放器错误
 //***************************************
 
-#define VIDEO_PLAYER_ERROR_NOW_IS_LOADING     26 //正在加载中，需要等待
-#define VIDEO_PLAYER_ERROR_ALREADY_OPEN       27 //已经打开文件，无需重复打开
-#define VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET 28 //此状态只能获取不能设置
-#define VIDEO_PLAYER_ERROR_NOT_OPEN           29 //播放器处于未打开状态
-#define VIDEO_PLAYER_ERROR_AV_ERROR           30 //ffmpeg错误
-#define VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM    31 //当前文件无视频通道
-#define VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT  32 //视频格式不支持
-#define VIDEO_PLAYER_ERROR_NOR_INIT           33 //播放器未初始化
-#define VIDEO_PLAYER_ERROR_RENDER_NOT_START   34 //渲染器还未开始，无法调用此方法
+#define VIDEO_PLAYER_ERROR_NOW_IS_LOADING          26 //正在加载中，需要等待
+#define VIDEO_PLAYER_ERROR_ALREADY_OPEN            27 //已经打开文件，无需重复打开
+#define VIDEO_PLAYER_ERROR_STATE_CAN_ONLY_GET      28 //此状态只能获取不能设置
+#define VIDEO_PLAYER_ERROR_NOT_OPEN                29 //播放器处于未打开状态
+#define VIDEO_PLAYER_ERROR_AV_ERROR                30 //ffmpeg错误
+#define VIDEO_PLAYER_ERROR_NO_VIDEO_STREAM         31 //当前文件无视频通道
+#define VIDEO_PLAYER_ERROR_VIDEO_NOT_SUPPORT       32 //视频格式不支持
+#define VIDEO_PLAYER_ERROR_NOR_INIT                33 //播放器未初始化
+#define VIDEO_PLAYER_ERROR_RENDER_NOT_START        34 //渲染器还未开始，
+#define VIDEO_PLAYER_ERROR_CAN_NOTCALL_THIS_TIME   35 //此时不能调用此方法
 
 //播放器事件
 //***************************************
@@ -172,7 +173,7 @@ public:
   //**********************
 
   /*
-  * 打开文件（异步）
+  * 打开文件（同步）
   * 参数：
   *   * filePath：文件路径
   * 返回值：
@@ -180,7 +181,7 @@ public:
   */
   virtual bool OpenVideo(const char* filePath) { return false; }
   /*
-  * 打开文件（异步）
+  * 打开文件（同步）
   * 参数：
   *   * filePath：文件路径
   * 返回值：
@@ -188,18 +189,30 @@ public:
   */
   virtual bool OpenVideo(const wchar_t* filePath) { return false; }
   /*
-  * 关闭文件（异步）
+  * 关闭文件（同步）
   * 返回值：
   *   操作是否成功
   */
   virtual bool CloseVideo() { return false; }
 
   /*
-  * 同步等待 OpenVideo 打开文件完成
+  * 设置是否启用推流模式。
+  * 必须在打开文件之前调用。
+  * 参数：
+  *   * push：启用
+  *   * type：推流类型 rtpm/rtsp
+  *   * address：推流地址
+  * 返回值：
+  *   操作是否成功
+  */
+  virtual bool SetVideoPush(bool push, const char*, const char* address) { return false; }
+
+  /*
+  * 其他线程同步等待 OpenVideo 打开文件完成
   */
   virtual void WaitOpenVideo() {}
   /*
-  * 同步等待 CloseVideo 关闭文件完成
+  * 其他线程同步等待 CloseVideo 关闭文件完成
   */
   virtual void WaitCloseVideo() {}
 
@@ -233,6 +246,10 @@ public:
   * 获取播放器是否循环播放
   */
   virtual bool GetVideoLoop() { return false; }
+  /*
+  * 获取播放器是否启用推流模式
+  */
+  virtual bool GetVideoPush() { return false; }
   /*
   * 获取播放器当前状态
   */
