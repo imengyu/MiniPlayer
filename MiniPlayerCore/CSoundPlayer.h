@@ -91,6 +91,7 @@ private:
 	bool fileOpenedState = false;
 	TPlayerStatus playerStatus = TPlayerStatus::NotOpen;
 
+	std::mutex preloadLock;
 	int lastErrorCode = 0;
 	std::wstring defaultOutputDeviceId;
 	std::wstring lastErrorMessage;

@@ -107,6 +107,7 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 		return preloadReadyState;
 	}
 
+	preloadLock.lock();
 	preloadReadyState = false;
 
 	if (preloadDecoder)
@@ -116,6 +117,7 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 	if (thisFileFormat == TStreamFormat::sfUnknown) {
 		SetLastError(PLAYER_ERROR_UNKNOWN_FILE_FORMAT, L"Unknown file format");
 		preloadStatus = TPlayerStatus::NotOpen;
+		preloadLock.unlock();
 		return false;
 	}
 
@@ -129,15 +131,18 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 		preloadDecoder = CreateDecoderWithFormat(thisFileFormat);
 	if (!preloadDecoder) {
 		preloadStatus = TPlayerStatus::NotOpen;
+		preloadLock.unlock();
 		return false;
 	}
 
 	if (preloadDecoder->Open(path)) {
 		preloadReadyState = true;
 		preloadStatus = TPlayerStatus::Opened;
+		preloadLock.unlock();
 		return true;
 	}
 
+	preloadLock.unlock();
 	preloadStatus = TPlayerStatus::NotOpen;
 	return false;
 }
@@ -468,6 +473,7 @@ CSoundDecoder* CSoundPlayerImpl::CreateDecoderWithFormat(TStreamFormat f)
 
 CSoundDevicePreloadType CSoundPlayerImpl::PlayAlmostEndAndCheckPrelod()
 {
+	preloadLock.lock();
 	//播放即将结束，现在检查是否可以预加载
 	if (
 		preloadReadyState && decoder != preloadDecoder && 
@@ -497,8 +503,10 @@ CSoundDevicePreloadType CSoundPlayerImpl::PlayAlmostEndAndCheckPrelod()
 		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
 		preloadReadyState = false; //已使用预加载
 
+		preloadLock.unlock();
 		return needRecreatePlay ? CSoundDevicePreloadType::PreloadReload : CSoundDevicePreloadType::PreloadSame;
 	}
+	preloadLock.unlock();
 	return CSoundDevicePreloadType::NoPreload;
 }
 void CSoundPlayerImpl::NotifyPlayEnd(bool error)
