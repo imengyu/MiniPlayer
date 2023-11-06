@@ -101,6 +101,7 @@ private:
   size_t outFrameBufferSize = 0;
   int outFrameDestWidth = 0;
   int outFrameDestHeight = 0;
+  AVPixelFormat inFrameDestFormat = AV_PIX_FMT_NONE;
   AVPixelFormat outFrameDestFormat = AV_PIX_FMT_RGBA;
 
   std::thread* renderVideoThread = nullptr;

@@ -184,10 +184,11 @@ bool CCPlayerRender::RecreateSwsContext() {
   if (swsContext != nullptr)
     sws_freeContext(swsContext);
   if (status == CCRenderState::Rendering) {
+    inFrameDestFormat = externalData->Player->GetVideoPixelFormat();
     swsContext = sws_getContext(
       externalData->VideoCodecContext->width,   //原图片的宽
       externalData->VideoCodecContext->height,  //源图高
-      externalData->Player->GetVideoPixelFormat(), //源图片format
+      inFrameDestFormat, //源图片format
       externalData->InitParams->DestWidth,  //目标图的宽
       externalData->InitParams->DestHeight,  //目标图的高
       (AVPixelFormat)externalData->InitParams->DestFormat,
@@ -235,6 +236,7 @@ void CCPlayerRender::SyncRenderEnd() {
 }
 
 bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
+  //输出大小更改后重新创建输出缓冲
   if (outFrame == nullptr 
     || outFrameDestFormat != externalData->InitParams->DestFormat
     || outFrameDestWidth != externalData->InitParams->DestWidth
@@ -253,9 +255,11 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
     outFrameBuffer = (uint8_t*)av_malloc(outFrameBufferSize);
   } 
   
+  //请求帧数据
   double frame_delays = 1.0 / externalData->CurrentFps;
   currentFrame = externalData->DecodeQueue->VideoFrameDequeue();
 
+  //无帧
   if (currentFrame == nullptr) {
     if (!sync) {
       av_usleep((int64_t)(100000));
@@ -267,7 +271,11 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
 
   noMoreVideoFrame = false;
 
-  if (!swsContext && RecreateSwsContext())
+  //在输入类型更改后重新创建转换上下文
+  if (
+    (!swsContext || (inFrameDestFormat != externalData->Player->GetVideoPixelFormat())) && 
+    !RecreateSwsContext()
+  )
     return false;
 
   //时钟

@@ -93,11 +93,11 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	params.DestWidth = 408;
 	params.DestHeight = 720;
 	params.UseRenderCallback = false;
-	params.UseHadwareDecoder = false;
+	params.UseHadwareDecoder = true;
 	params.SyncRender = true;
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
-	player->SetVideoPush(true, "rtsp", "rtsp://127.0.0.1/live");
+	//player->SetVideoPush(true, "rtsp", "rtsp://127.0.0.1/live");
 
 	//播放器回调
 	player->SetPlayerEventCallback([] (CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
@@ -195,7 +195,6 @@ REPLAY:
 		}
 		_FPS_Timer = SDL_GetTicks();
 
-		/*
 		//渲染
 		if (player->GetVideoState() == CCVideoState::Playing) {
 			auto rdcData = player->SyncRenderStart();
@@ -218,7 +217,6 @@ REPLAY:
 			SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
 			SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
 		}
-		*/
 		if (player->GetVideoState() == CCVideoState::Ended) {
 			count++;
 			if (count == 1) {

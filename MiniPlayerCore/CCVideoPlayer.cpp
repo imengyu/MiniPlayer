@@ -371,11 +371,8 @@ bool CCVideoPlayer::InitDecoder() {
   decodeState = CCDecodeState::Preparing;
 
   //寻找硬件解码类型
-  if (InitParams.UseHadwareDecoder) {
+  if (InitParams.UseHadwareDecoder)
     type = AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA;
-    if (type == AV_HWDEVICE_TYPE_NONE)
-      type = av_hwdevice_iterate_types(type);
-  }
 
   formatContext = avformat_alloc_context();
   //打开视频数据源
@@ -533,9 +530,17 @@ bool CCVideoPlayer::InitDecoder() {
       for (int i = 0;; i++) {
         const AVCodecHWConfig* config = avcodec_get_hw_config(videoCodec, i);
         if (!config) {
-          LOGEF("InitDecoder: Decoder %s does not support device type %s.", videoCodec->name, av_hwdevice_get_type_name(type));
-          SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, "avcodec_get_hw_config failed");
-          goto INIT_FAIL_CLEAN;
+          SetLastError(VIDEO_PLAYER_ERROR_AV_ERROR, 
+            StringHelper::FormatString(
+              "InitDecoder: Decoder % s does not support device type % s.", 
+              videoCodec->name, 
+              av_hwdevice_get_type_name(type)
+            ).c_str()
+          );
+          videoCodecContext->get_format = nullptr;
+          type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
+          hw_can_use = false;
+          goto SKIP_INIT_HW;
         }
         if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX && config->device_type == type) {
           //把硬件支持的像素格式设置进去
@@ -553,12 +558,15 @@ bool CCVideoPlayer::InitDecoder() {
         LOGW("InitDecoder: InitHwDecoder failed, hardware decoder disabled");
         type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
         videoCodecContext->get_format = nullptr;
+        hw_can_use = false;
         CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
       }
       else {
         hw_can_use = true;
       }
     }
+
+  SKIP_INIT_HW:
 
     ret = avcodec_open2(videoCodecContext, videoCodec, nullptr);
     //通过所给的编解码器初始化编解码器上下文
@@ -1181,9 +1189,7 @@ AVPixelFormat CCVideoPlayer::GetVideoPixelFormat()
 {
   return hw_frame_pix_fmt != AVPixelFormat::AV_PIX_FMT_NONE ? 
     hw_frame_pix_fmt : (
-      hw_can_use ? 
-        AVPixelFormat::AV_PIX_FMT_NV12 :
-        (videoCodecContext ? videoCodecContext->pix_fmt : AVPixelFormat::AV_PIX_FMT_NONE)
+      (videoCodecContext ? videoCodecContext->pix_fmt : AVPixelFormat::AV_PIX_FMT_NONE)
     );
 }
 
