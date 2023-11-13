@@ -7,13 +7,22 @@
 #include <Shlobj.h>  
 #include <conio.h>  
 #include <locale>
+#include <thread>
 #include <mutex>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include <nanomsg/pair.h>
+#include <nanomsg/bus.h>
+#include <nanomsg/nn.h>
 #pragma comment(lib,"Shell32.lib")  
 #pragma comment(lib,"MiniPlayerCore.lib")  
 #pragma comment(lib,"SDL2.lib")  
 #pragma comment(lib,"SDL2main.lib")
+#pragma comment(lib,"nanomsg.lib")
+
+const wchar_t* AppTitle = L"播放器";
+const char* SocketUrl = "tcp://127.0.0.1:4173";
+const int SocketBufferSize = 256;
 
 void DoPlaySound(wchar_t* strFilename) {
 	CSoundPlayer* player = CreateSoundPlayer();
@@ -284,60 +293,63 @@ void DoReadVideo(wchar_t* strFilename) {
 	ReleaseVideoInfo(info);
 }
 
-int endWith(const wchar_t* str1, const wchar_t* str2) {
-	if(str1 == NULL || str2 == NULL)
-		return -1;
-	int len1 = wcslen(str1);
-	int len2 = wcslen(str2);
-	if ((len1 < len2) || (len1 == 0 || len2 == 0))
-		return -1;
-	while (len2 >= 1)
+void ReportFailure(const wchar_t *message) {
+	MessageBox(NULL, AppTitle, message, MB_ICONERROR | MB_OK);
+}
+
+int MsgThread() {
+	int server_sock = 0;
+	char buf[SocketBufferSize] = { 0 };
+
+	if (server_sock = nn_socket(AF_SP, NN_PAIR) < 0)
 	{
-		if (str2[len2 - 1] != str1[len1 - 1])
-			return 0;
-		len2--;
-		len1--;
+		ReportFailure(L"create server socket failed!");
+		goto FAILURE;
 	}
-	return 1;
+
+	if (nn_bind(server_sock, SocketUrl) < 0)
+	{
+		ReportFailure(L"bind server sock failed!\r\n");
+		goto FAILURE;
+	}
+
+	printf("connect socket success\n");
+
+	while (1)
+	{
+		if (nn_recv(server_sock, buf, sizeof(buf), 0) < 0)
+		{
+			ReportFailure(L"recv failed!");
+			goto FAILURE;
+		}
+		else
+		{
+			printf("recieve client msg: %s\r\n", buf);
+			if (nn_send(server_sock, buf, sizeof(buf), 0) < 0)
+			{
+				printf("send failed!\r\n");
+				goto FAILURE;
+			}
+		}
+	}
+
+	nn_close(server_sock);
+	return 0;
+FAILURE:
+	if (server_sock)
+		nn_close(server_sock);
+	exit(EXIT_FAILURE);
+	return -1;
 }
 
 int main()
 {
 	setlocale(LC_ALL, "chs");
-	wchar_t strFilename[MAX_PATH] = { 0 };
-	wcscpy_s(strFilename, L"D:\\2.mp4");
+
+	std::thread messageThread(MsgThread);
+	messageThread.detach();
 
 
-	//wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎1\\新欢迎1.mp3");
 
-	/*OPENFILENAME ofn = {0};
-	ofn.lStructSize = sizeof(OPENFILENAME);
-	ofn.hwndOwner = GetConsoleWindow();
-	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤  
-	ofn.nFilterIndex = 1;//过滤器索引  
-	ofn.lpstrFile = strFilename;
-	ofn.nMaxFile = sizeof(strFilename);
-	ofn.lpstrInitialDir = NULL;
-	ofn.lpstrTitle = TEXT("打开音乐");
-	ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-	if (!GetOpenFileName(&ofn))
-	{
-		wprintf(L"请选择一个文件\n");
-		system("PAUSE");
-		return 0;
-	}*/
-
-	if (
-		endWith(strFilename, L".mp3") == 1 ||
-		endWith(strFilename, L".wav") == 1 ||
-		endWith(strFilename, L".ogg") == 1 ||
-		endWith(strFilename, L".flac") == 1 ||
-		endWith(strFilename, L".aac") == 1
-	) {
-		DoPlaySound(strFilename);
-	}
-	else {
-		DoReadVideo(strFilename);
-	}
 	return 0;
 }
