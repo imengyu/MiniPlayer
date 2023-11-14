@@ -63,6 +63,7 @@ RELOAD:
 		player->Close();
 		count++;
 
+		/*
 		if (count == 1) {
 			wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎2\\新欢迎2.MP3");
 			goto RELOAD;
@@ -70,7 +71,7 @@ RELOAD:
 			wcscpy_s(strFilename, 260, L"D:\\小语资源库\\主流程1\\新欢迎3\\新欢迎3.MP3");
 			goto RELOAD;
 		}
-
+		*/
 
 		wprintf(L"\n音乐已停止\n");
 	}
@@ -342,14 +343,61 @@ FAILURE:
 	return -1;
 }
 
+int endWith(const wchar_t* str1, const wchar_t* str2) {
+	if (str1 == NULL || str2 == NULL)
+		return -1;
+	int len1 = wcslen(str1);
+	int len2 = wcslen(str2);
+	if ((len1 < len2) || (len1 == 0 || len2 == 0))
+		return -1;
+	while (len2 >= 1)
+	{
+		if (str2[len2 - 1] != str1[len1 - 1])
+			return 0;
+		len2--;
+		len1--;
+	}
+	return 1;
+}
+
 int main()
 {
 	setlocale(LC_ALL, "chs");
 
-	std::thread messageThread(MsgThread);
-	messageThread.detach();
+	wchar_t strFilename[MAX_PATH] = { 0 };
+	//wcscpy_s(strFilename, L"D:\\2.mp4");
+	wcscpy_s(strFilename, 260, L"D:\\小语资源库\\测试音频\\放心吃，放心拍，所见不是所得，直接退，先抢名额_江彤_情绪+3_语速-50_语调0_直播_3D语音训练器211400.mp3");
+	/*OPENFILENAME ofn = {0};
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = GetConsoleWindow();
+	ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤
+	ofn.nFilterIndex = 1;//过滤器索引
+	ofn.lpstrFile = strFilename;
+	ofn.nMaxFile = sizeof(strFilename);
+	ofn.lpstrInitialDir = NULL;
+	ofn.lpstrTitle = TEXT("打开音乐");
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+	if (!GetOpenFileName(&ofn))
+	{
+		wprintf(L"请选择一个文件\n");
+		system("PAUSE");
+		return 0;
+	}*/
+	if (
+		endWith(strFilename, L".mp3") == 1 ||
+		endWith(strFilename, L".wav") == 1 ||
+		endWith(strFilename, L".ogg") == 1 ||
+		endWith(strFilename, L".flac") == 1 ||
+		endWith(strFilename, L".aac") == 1
+		) {
+		DoPlaySound(strFilename);
+	}
+	else {
+		DoReadVideo(strFilename);
+	}
 
-
+	//std::thread messageThread(MsgThread);
+	//messageThread.detach();
 
 	return 0;
 }

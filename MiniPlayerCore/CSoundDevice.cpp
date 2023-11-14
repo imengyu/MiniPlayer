@@ -273,24 +273,24 @@ void CSoundDevice::Destroy()
 }
 void CSoundDevice::Reset()
 {
-  if (!createSuccess)
+  if (!GetThreadStatus())
     return;
   ResetEvent(hEventResetDone);
   SetEvent(hEventReset);
-  WaitForSingleObject(hEventResetDone, INFINITE);
+  WaitForSingleObject(hEventResetDone, 2000);
   ResetEvent(hEventResetDone);
 }
 void CSoundDevice::Stop()
 {
-  if (!createSuccess)
+  if (!GetThreadStatus())
     return;
   ResetEvent(hEventStopDone);
   SetEvent(hEventStop);
-  WaitForSingleObject(hEventStopDone, INFINITE);
+  WaitForSingleObject(hEventStopDone, 2000);
 }
 bool CSoundDevice::Start()
 {
-  if (!createSuccess && !Create())
+  if (!GetThreadStatus() && !Create())
     return false;
   SetEvent(hEventPlay);
   return true;
@@ -309,7 +309,21 @@ void CSoundDevice::HandlePlayError(HRESULT hr) {
   else
     parent->SetLastError(PLAYER_ERROR_OUTPUT_ERROR, StringHelper::FormatString(L"CSoundDevice error with HRESULT: 0x%08X", __LINE__, hr).c_str());
   SetEvent(hEventCreateDone);
-  createSuccess = false;
+  SetThreadStatus(false);
+}
+
+bool CSoundDevice::GetThreadStatus()
+{
+  accessStatusLock.lock();
+  bool result = createSuccess;
+  accessStatusLock.unlock();
+  return result;
+}
+void CSoundDevice::SetThreadStatus(bool newVal)
+{
+  accessStatusLock.lock();
+  createSuccess = newVal;
+  accessStatusLock.unlock();
 }
 
 void CSoundDevice::PlayerThread(void* p)
@@ -418,7 +432,7 @@ RECREATE:
 RESET:
   hasMoreData = false;
   device->isStarted = false;
-  device->createSuccess = true;
+  device->SetThreadStatus(true);
 
   SetEvent(device->hEventResetDone);
   SetEvent(device->hEventCreateDone);
@@ -442,7 +456,7 @@ RESET:
   hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * requestFrameCount / pwfx->nSamplesPerSec);
 
   //Ñ­»·
-  while (device->createSuccess)
+  while (device->GetThreadStatus())
   {
     switch (waitMessagesResult)
     {
@@ -577,7 +591,7 @@ EXIT:
     CoTaskMemFree(pwfx);
 
   device->isStarted = false;
-  device->createSuccess = false;
+  device->SetThreadStatus(false);
 
   if (pAudioClient)
     pAudioClient->Release();
@@ -598,7 +612,6 @@ EXIT:
     pDevice->Release();
 
   CoUninitialize();
-
 
   if (device->parent)
     device->parent->NotifyPlayEnd(hasError);

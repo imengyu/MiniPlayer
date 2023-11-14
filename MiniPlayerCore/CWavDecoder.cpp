@@ -131,7 +131,7 @@ DWORD CWavDecoder::GetLengthSample()
 }
 DWORD CWavDecoder::GetCurrentPositionSample()
 {
-	_CurSec = static_cast<DWORD>((double)cur / (double)_BitPerSample);
+	_CurSec = static_cast<double>((double)cur / (double)_BitPerSample);
 	return static_cast<DWORD>(_CurSec* GetSampleRate());
 }
 DWORD CWavDecoder::SeekToSample(DWORD sec)

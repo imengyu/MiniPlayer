@@ -75,6 +75,10 @@ private:
   UINT32 bufferFrameCount = 0;
   UINT32 numFramesPadding = 0;
   std::mutex threadLock;
+  std::mutex accessStatusLock;
+
+  bool GetThreadStatus();
+  void SetThreadStatus(bool newVal);
 
   OnRequestDataSizeCallback requestDataSizeCallback = nullptr;
   OnCopyDataCallback copyDataCallback = nullptr;

@@ -100,11 +100,11 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 
 	preloadStatus = TPlayerStatus::Loading;
 
-	//如果播放器处于未加载状态，则直接调用正常的加载方法，无需预加载
+	//如果播放器处于未加载状态，无需预加载
 	if (playerStatus == TPlayerStatus::NotOpen || playerStatus == TPlayerStatus::PlayEnd) {
-		preloadReadyState = Load(path);
-		preloadStatus = preloadReadyState ? TPlayerStatus::Opened : TPlayerStatus::NotOpen;
-		return preloadReadyState;
+		preloadReadyState = false;
+		preloadStatus = TPlayerStatus::NotOpen;
+		return false;
 	}
 
 	preloadLock.lock();
