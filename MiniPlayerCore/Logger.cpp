@@ -12,7 +12,7 @@ using namespace std;
 
 Logger* globalStaticLogger = nullptr;
 
-void Logger::InitConst() { globalStaticLogger = new Logger("App"); }
+void Logger::InitConst() { globalStaticLogger = new LoggerImpl("App"); }
 void Logger::DestroyConst() { delete globalStaticLogger; }
 
 Logger* Logger::GetStaticInstance()
@@ -20,16 +20,16 @@ Logger* Logger::GetStaticInstance()
 	return globalStaticLogger;
 }
 
-Logger::Logger(const char* tag)
+LoggerImpl::LoggerImpl(const char* tag)
 {
 	logTag = tag;
 }
-Logger::~Logger()
+LoggerImpl::~LoggerImpl()
 {
 	CloseLogFile();
 }
 
-void Logger::Log(const char* str, ...)
+void LoggerImpl::Log(const char* str, ...)
 {
 	if (level <= LogLevelText) {
 		va_list arg;
@@ -38,7 +38,7 @@ void Logger::Log(const char* str, ...)
 		va_end(arg);
 	}
 }
-void Logger::LogWarn(const char* str, ...)
+void LoggerImpl::LogWarn(const char* str, ...)
 {
 	if (level <= LogLevelWarn) {
 		va_list arg;
@@ -47,7 +47,7 @@ void Logger::LogWarn(const char* str, ...)
 		va_end(arg);
 	}
 }
-void Logger::LogError(const char* str, ...)
+void LoggerImpl::LogError(const char* str, ...)
 {
 	if (level <= LogLevelError) {
 		va_list arg;
@@ -56,7 +56,7 @@ void Logger::LogError(const char* str, ...)
 		va_end(arg);
 	}
 }
-void Logger::LogInfo(const char* str, ...)
+void LoggerImpl::LogInfo(const char* str, ...)
 {
 	if (level <= LogLevelInfo) {
 		va_list arg;
@@ -66,7 +66,7 @@ void Logger::LogInfo(const char* str, ...)
 	}
 }
 
-void Logger::Log2(const char* str, const char* file, int line, const char* functon, ...)
+void LoggerImpl::Log2(const char* str, const char* file, int line, const char* functon, ...)
 {
 	if (level <= LogLevelText) {
 		va_list arg;
@@ -75,7 +75,7 @@ void Logger::Log2(const char* str, const char* file, int line, const char* funct
 		va_end(arg);
 	}
 }
-void Logger::LogWarn2(const char* str, const char* file, int line, const char* functon, ...)
+void LoggerImpl::LogWarn2(const char* str, const char* file, int line, const char* functon, ...)
 {
 	if (level <= LogLevelWarn) {
 		va_list arg;
@@ -84,7 +84,7 @@ void Logger::LogWarn2(const char* str, const char* file, int line, const char* f
 		va_end(arg);
 	}
 }
-void Logger::LogError2(const char* str, const char* file, int line, const char* functon, ...)
+void LoggerImpl::LogError2(const char* str, const char* file, int line, const char* functon, ...)
 {
 	if (level <= LogLevelError) {
 		va_list arg;
@@ -93,7 +93,7 @@ void Logger::LogError2(const char* str, const char* file, int line, const char* 
 		va_end(arg);
 	}
 }
-void Logger::LogInfo2(const char* str, const char* file, int line, const  char* functon, ...)
+void LoggerImpl::LogInfo2(const char* str, const char* file, int line, const  char* functon, ...)
 {
 	if (level <= LogLevelInfo) {
 		va_list arg;
@@ -103,18 +103,18 @@ void Logger::LogInfo2(const char* str, const char* file, int line, const  char* 
 	}
 }
 
-void Logger::SetLogLevel(LogLevel logLevel)
+void LoggerImpl::SetLogLevel(LogLevel logLevel)
 {
 	this->level = logLevel;
 }
-LogLevel Logger::GetLogLevel() {
+LogLevel LoggerImpl::GetLogLevel() {
 	return this->level;
 }
-void Logger::SetLogOutPut(LogOutPut output)
+void LoggerImpl::SetLogOutPut(LogOutPut output)
 {
 	this->outPut = output;
 }
-void Logger::SetLogOutPutFile(const char* filePath)
+void LoggerImpl::SetLogOutPutFile(const char* filePath)
 {
 	if (logFilePath != filePath)
 	{
@@ -127,15 +127,15 @@ void Logger::SetLogOutPutFile(const char* filePath)
 #endif
 	}
 }
-void Logger::SetLogOutPutCallback(LogCallBack callback, void* lparam)
+void LoggerImpl::SetLogOutPutCallback(LogCallBack callback, void* lparam)
 {
 	callBack = callback;
 	callBackData = lparam;
 }
-void Logger::InitLogConsoleStdHandle() {
+void LoggerImpl::InitLogConsoleStdHandle() {
 	hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 }
-void Logger::LogOutputToStdHandle(LogLevel logLevel, const char* str, size_t len) {
+void LoggerImpl::LogOutputToStdHandle(LogLevel logLevel, const char* str, size_t len) {
 	switch (logLevel)
 	{
 	case LogLevelInfo:
@@ -156,7 +156,7 @@ void Logger::LogOutputToStdHandle(LogLevel logLevel, const char* str, size_t len
 	WriteConsoleA(hOutput, str, len, NULL, NULL);
 }
 
-void Logger::ResentNotCaputureLog()
+void LoggerImpl::ResentNotCaputureLog()
 {
 	if (outPut == LogOutPutCallback && callBack) {
 		std::list< LOG_SLA>::iterator i;
@@ -165,18 +165,18 @@ void Logger::ResentNotCaputureLog()
 		logPendingBuffer.clear();
 	}
 }
-void Logger::WritePendingLog(const char* str, LogLevel logLevel)
+void LoggerImpl::WritePendingLog(const char* str, LogLevel logLevel)
 {
 	LOG_SLA sla = { std::string(str), logLevel };
 	logPendingBuffer.push_back(sla);
 }
 
-void Logger::LogInternalWithCodeAndLine(LogLevel logLevel, const char* str, const char* file, int line, const char* functon, va_list arg)
+void LoggerImpl::LogInternalWithCodeAndLine(LogLevel logLevel, const char* str, const char* file, int line, const char* functon, va_list arg)
 {
 	std::string format1 = StringHelper::FormatString("%s\n[In] %s (%d) : %hs", str, file, line, functon);
 	LogInternal(logLevel, format1.c_str(), arg);
 }
-void Logger::LogInternal(LogLevel logLevel, const char* str, va_list arg)
+void LoggerImpl::LogInternal(LogLevel logLevel, const char* str, va_list arg)
 {
 	const char* levelStr;
 	switch (logLevel)
@@ -199,7 +199,7 @@ void Logger::LogInternal(LogLevel logLevel, const char* str, va_list arg)
 	std::string out = StringHelper::FormatString(format1.c_str(), arg);
 	LogOutput(logLevel, out.c_str(), str, out.size());
 }
-void Logger::LogOutput(LogLevel logLevel, const char* str, const char* srcStr, size_t len)
+void LoggerImpl::LogOutput(LogLevel logLevel, const char* str, const char* srcStr, size_t len)
 {
 #if _DEBUG
 	OutputDebugStringA(str);
@@ -218,7 +218,7 @@ void Logger::LogOutput(LogLevel logLevel, const char* str, const char* srcStr, s
 	else
 		WritePendingLog(str, logLevel);
 }
-void Logger::CloseLogFile()
+void LoggerImpl::CloseLogFile()
 {
 	if (logFile) {
 		fclose(logFile);

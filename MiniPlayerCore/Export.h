@@ -11,8 +11,16 @@
 #include "CSoundPlayerExport.h"
 #include "CCVideoPlayerExport.h"
 #include "CCAsyncTask.h"
-#define MINI_PLAYER_EXPORT 
+
+#ifdef MINI_PLAYER_EXE
+
+#include "CCEvent.h"
+#include "CCSimpleStack.h"
+#include "CCSimpleQueue.h"
 #include "StringHelper.h"
+#include "Logger.h"
+
+#endif
 
 #endif
 

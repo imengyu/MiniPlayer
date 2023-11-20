@@ -245,6 +245,42 @@ bool StringHelper::StringToBool(const char* _str) {
 	return atoi(_str) != 0;
 }
 
+bool StringHelper::EndWith(const wchar_t* str1, const wchar_t* str2)
+{
+	if (str1 == nullptr || str2 == nullptr)
+		return false;
+	int len1 = wcslen(str1);
+	int len2 = wcslen(str2);
+	if ((len1 < len2) || (len1 == 0 || len2 == 0))
+		return false;
+	while (len2 >= 1)
+	{
+		if (str2[len2 - 1] != str1[len1 - 1])
+			return false;
+		len2--;
+		len1--;
+	}
+	return true;
+}
+
+bool StringHelper::EndWith(const char* str1, const char* str2)
+{
+	if (str1 == nullptr || str2 == nullptr)
+		return false;
+	int len1 = strlen(str1);
+	int len2 = strlen(str2);
+	if ((len1 < len2) || (len1 == 0 || len2 == 0))
+		return false;
+	while (len2 >= 1)
+	{
+		if (str2[len2 - 1] != str1[len1 - 1])
+			return false;
+		len2--;
+		len1--;
+	}
+	return true;
+}
+
 
 char* StringHelper::AllocString(std::string& str)
 {

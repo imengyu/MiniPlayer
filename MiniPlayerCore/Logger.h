@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include <string>
 #include <list>
+#ifndef MINI_PLAYER_EXPORT
+#include "ExportDefine.h"
+#endif
 
 //日志级别
 enum LogLevel {
@@ -29,31 +32,58 @@ enum LogOutPut {
 
 typedef void(*LogCallBack)(const char* str, LogLevel level, void* lparam);
 
+//日志记录
+class MINI_PLAYER_EXPORT Logger {
+
+public:
+	static void InitConst();
+	static void DestroyConst();
+	static Logger* GetStaticInstance();
+
+	virtual void Log(const char* str, ...) {}
+	virtual void LogWarn(const char* str, ...) {}
+	virtual void LogError(const char* str, ...) {}
+	virtual void LogInfo(const char* str, ...) {}
+
+	virtual void Log2(const char* str, const char* file, int line, const char* functon, ...) {}
+	virtual void LogWarn2(const char* str, const char* file, int line, const char* functon, ...) {}
+	virtual void LogError2(const char* str, const char* file, int line, const char* functon, ...) {}
+	virtual void LogInfo2(const char* str, const char* file, int line, const char* functon, ...) {}
+
+	virtual LogLevel GetLogLevel() { return LogLevel::LogLevelDisabled; }
+	virtual void SetLogLevel(LogLevel logLevel) {}
+	virtual void SetLogOutPut(LogOutPut output) {}
+	virtual void SetLogOutPutCallback(LogCallBack callback, void* lparam) {}
+	virtual void SetLogOutPutFile(const char* filePath) {}
+
+	virtual void ResentNotCaputureLog() {}
+	virtual void InitLogConsoleStdHandle() {}
+};
+
+
+#ifdef MINI_PLAYER_LIB
+
 struct LOG_SLA {
 	std::string str;
 	LogLevel level;
 };
 
 //日志记录
-class Logger {
+class LoggerImpl : public Logger {
 
 public:
-	Logger(const char* tag);
-	~Logger();
+	LoggerImpl(const char* tag);
+	~LoggerImpl();
 
-	static void InitConst();
-	static void DestroyConst();
-	static Logger* GetStaticInstance();
+	void Log(const char* str, ...);
+	void LogWarn(const char* str, ...);
+	void LogError(const char* str, ...);
+	void LogInfo(const char* str, ...);
 
-	virtual void Log(const char* str, ...);
-	virtual void LogWarn(const char* str, ...);
-	virtual void LogError(const char* str, ...);
-	virtual void LogInfo(const char* str, ...);
-
-	virtual void Log2(const char* str, const char* file, int line, const char* functon, ...);
-	virtual void LogWarn2(const char* str, const char* file, int line, const char* functon, ...);
-	virtual void LogError2(const char* str, const char* file, int line, const char* functon, ...);
-	virtual void LogInfo2(const char* str, const char* file, int line, const char* functon, ...);
+	void Log2(const char* str, const char* file, int line, const char* functon, ...);
+	void LogWarn2(const char* str, const char* file, int line, const char* functon, ...);
+	void LogError2(const char* str, const char* file, int line, const char* functon, ...);
+	void LogInfo2(const char* str, const char* file, int line, const char* functon, ...);
 
 	LogLevel GetLogLevel();
 	void SetLogLevel(LogLevel logLevel);
@@ -65,6 +95,7 @@ public:
 	void InitLogConsoleStdHandle();
 
 private:
+
 	std::list<LOG_SLA> logPendingBuffer;
 	std::string logFilePath;
 	std::string logTag;
@@ -87,6 +118,8 @@ private:
 	void LogOutput(LogLevel logLevel, const char* str, const char* srcStr, size_t len);
 	void CloseLogFile();
 };
+
+#endif
 
 //快速记录日志
 
