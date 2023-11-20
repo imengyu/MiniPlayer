@@ -5,6 +5,7 @@
 #include <nanomsg/pair.h>
 #include <nanomsg/bus.h>
 #include <nanomsg/nn.h>
+#include "json.hpp"
 
 
 class PlayerServer

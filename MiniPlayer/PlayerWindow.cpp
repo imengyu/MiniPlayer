@@ -20,8 +20,8 @@ int PlayerWindow::Init()
 		"PlayVideo",
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
-		720,
-		1080,
+		viewWidth,
+		viewHeight,
 		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN
 	);
 	if (!window)
@@ -43,19 +43,44 @@ int PlayerWindow::Init()
 
   return 0;
 }
-
 int PlayerWindow::Run()
 {
+	SDL_Event event;
+	do
+	{
+		SDL_PollEvent(&event);//ÂÖÑµ·½Ê½
+		switch (event.type)
+		{
+		case SDL_QUIT:
+			quit = true;
+			break;
+		case SDL_WINDOWEVENT:
+			if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+				HandleReasize(event.window.data1, event.window.data2);
+			break;
+		case SDL_MOUSEBUTTONDOWN:
+			break;
+		default:
+			break;
+		}
 
+		//Ö¡ÂÊÏÞÖÆ
+		if (SDL_GetTicks() - limitFpsTimer < limitFps)
+			SDL_Delay(limitFps - SDL_GetTicks() + limitFpsTimer);
+		limitFpsTimer = SDL_GetTicks();
 
-
-
-
+		//äÖÈ¾
+		RenderAllLayout(render);
+			
+		SDL_RenderPresent(render);//¿ªÊ¼äÖÈ¾Í¼Ïñ²¢¿½±´µ½ÏÔÊ¾Æ÷
+	} while (!quit);
 	return 0;
 }
 
 void PlayerWindow::Destroy()
 {
+	DeleteAllLayout();
+
 	if (render) {
 		SDL_DestroyRenderer(render);//É¾³ýäÖÈ¾Æ÷
 		render = nullptr;
@@ -69,6 +94,31 @@ void PlayerWindow::Destroy()
 	SDL_Quit();//Ð¶ÔØ»·¾³
 }
 
+void PlayerWindow::HandleReasize(int screenWidth, int screenHeight)
+{
+	viewWidth = screenWidth;
+	viewHeight = screenHeight;
+}
+
+void PlayerWindow::RenderAllLayout(SDL_Renderer* render)
+{
+	for (auto it = layers.begin(); it; it = it->next) {
+		auto layer = it->value;
+		if (layer->Enable && layer->Opacity > 0) {
+			layer->Render(render, viewWidth, viewHeight);
+		}
+	}
+}
+void PlayerWindow::DeleteAllLayout()
+{
+	for (auto it = layers.begin(); it; it = it->next) {
+		auto layer = it->value;
+		layer->Release();
+		delete layer;
+	}
+	layers.clear();
+}
+
 int RunVideoMain(std::string &socketUrl, int socketBufferSize) {
 	PlayerWindow window;
 	window.GetServer()->SocketUrl = socketUrl;
@@ -76,4 +126,77 @@ int RunVideoMain(std::string &socketUrl, int socketBufferSize) {
 	if (window.Init() == 0)
 		return window.Run();
 	return -1;
+}
+
+PlayerVideoLayer::PlayerVideoLayer()
+{
+}
+PlayerVideoLayer::~PlayerVideoLayer()
+{
+}
+
+bool PlayerVideoLayer::Create()
+{
+	CCVideoPlayerInitParams params;
+	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
+	params.DestWidth = 720;
+	params.DestHeight = 1080;
+	params.UseRenderCallback = false;
+	params.UseHadwareDecoder = true;
+	params.SyncRender = true;
+
+	player = CreateVideoPlayer(&params);
+	player->SetPlayerEventCallback([](CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
+		auto playData = (PlayerVideoLayer*)(customData);
+		switch (message)
+		{
+		case PLAYER_EVENT_CLOSED: {
+			break;
+		}
+		case PLAYER_EVENT_PLAY_END: {
+			break;
+		}
+		case PLAYER_EVENT_INIT_DECODER_DONE: {
+			break;
+		}
+		default:
+			break;
+		}
+	}, this);
+
+	return true;
+}
+void PlayerVideoLayer::Release()
+{
+	if (player) {
+		if (!player->CloseVideo())
+			LOGEF("CloseVideo failed: (%d) %hs", player->GetLastError(), player->GetLastErrorMessage());
+		player->WaitCloseVideo();
+		DestroyVideoPlayer(player);
+		player = nullptr;
+	}
+}
+void PlayerVideoLayer::Render(SDL_Renderer* render, int viewWidth, int viewHeight)
+{
+	SDL_Rect rect;
+	rect.x = X * viewWidth;
+	rect.y = Y * viewHeight;
+	rect.w = Width * viewWidth;
+	rect.h = Height * viewHeight;
+
+	if (player->GetVideoState() == CCVideoState::Playing) {
+		auto rdcData = player->SyncRenderStart();
+		if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
+			SDL_UpdateYUVTexture(
+				texture,
+				NULL,
+				rdcData->data[0], rdcData->linesize[0],
+				rdcData->data[1], rdcData->linesize[1],
+				rdcData->data[2], rdcData->linesize[2]
+			);
+		}
+		player->SyncRenderEnd();
+
+		SDL_RenderCopy(render, texture, nullptr, &rect);
+	}
 }

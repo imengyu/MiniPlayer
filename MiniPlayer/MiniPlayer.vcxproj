@@ -152,6 +152,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="argparse.hpp" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="PlayerServer.h" />
     <ClInclude Include="PlayerTest.h" />
     <ClInclude Include="PlayerWindow.h" />
