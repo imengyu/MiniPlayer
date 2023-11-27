@@ -397,27 +397,39 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
     int copyedSamples = 0;
 
     if (destLeaveSamples > 0) {
-      copyedSamples = min(destLeaveSamples, sample);
-      //上次有多余数据，但数据少于缓冲区大小，则先拷走数据，然后再解码一帧，填满缓冲区
-      buffer.Append(audioOutLeave->Data(), min(buf_len, copyedSamples * destDataSizeOne));
-      audioOutLeave->Increase(min(buf_len, copyedSamples * destDataSizeOne));
-      destLeaveSamples -= copyedSamples;
+      //上次有多余数据，先拷走数据
+      //然后看看有没有填充满，满多余，则直接下一帧再解码，否则需要继续解码
+
+      auto needCopySample = min((int)destLeaveSamples, (int)sample);
+      auto needCopySampleSize = needCopySample * destDataSizeOne;
+
+      buffer.Append(audioOutLeave->Data(), needCopySampleSize);
+
+      audioOutLeave->Increase(needCopySampleSize);
+      copyedSamples += needCopySample;
+      destLeaveSamples -= needCopySample;
     }
+
     if (destLeaveSamples > 0) {
       //上次有多余数据多余缓冲区大小，这一次就不解码下一帧了
+      //这回就移动剩余缓冲区中的数据到头部，方便下次写入
       if (audioOutLeave->GetSpaceSize() > audioOutLeave->GetSize() / 3)
         audioOutLeave->MoveToFirst();
+
       //LOGDF("Read: data full, leave: %d Clock: %f", destLeaveSamples, currentAudioClock);
       return true;
     }
-    else {
-      audioOutLeave->Reset();
-    }
+      
+    audioOutLeave->Reset();
+    
+  REQUEST_FRAME:
 
-    //请求帧
+    //请求帧并且开始解码
+
     AVFrame* frame = externalData->DecodeQueue->AudioFrameDequeue();
     if (frame == nullptr) {
       memset(buf, 0, buf_len);
+      LOGDF("No audio frame, idle");
       return true;
     }
 
@@ -442,15 +454,17 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
 
       if (destDataSamples > 0) {
 
-        //拷贝新的数据
-        auto writeSize = min((int)destDataSamples, (int)sample - copyedSamples) * destDataSizeOne;
-        buffer.Append(audioOutBuffer[0], writeSize);
-        destLeaveSamples = max(0, destDataSamples - (sample - copyedSamples));
+        //解码出来新的数据
+        destDataSize = destDataSamples * destDataSizeOne;
 
-        if (destLeaveSamples > 0) {
-          //ffmpeg一帧解码出的数据可能大于缓冲区大小，先保存多出数据下次一起拷贝
-          audioOutLeave->AppendNoIncrease(audioOutBuffer[0] + writeSize, destDataSize - writeSize);
-        }
+        //拷贝新的数据
+        auto needCopySample = ((long)sample - copyedSamples);
+        auto writeSample = min(destDataSamples, needCopySample);
+        auto writeSize = writeSample * destDataSizeOne;
+
+        //写入缓冲区
+        buffer.Append(audioOutBuffer[0], writeSize);
+        copyedSamples += writeSample;
 
         //LOGDF("Read: %d/%d get: %d leave: %d Clock: %f", frame->nb_samples, destDataSamples, sample, destLeaveSamples, currentAudioClock);
 
@@ -461,6 +475,23 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
         if (out_file)
           fwrite(buffer.FirstData(), 1, buffer.GetFilledSize(), out_file);
 #endif
+
+        if (needCopySample > writeSample) {
+          //当前帧缺失一些数据，再解码一帧，填满缓冲区
+          LOGDF("Lack sample: %d Clock: %f", -destLeaveSamples, currentAudioClock);
+          destLeaveSamples = 0;
+          externalData->DecodeQueue->ReleaseFrame(frame);
+          goto REQUEST_FRAME;
+        }
+        else {
+          //ffmpeg一帧解码出的数据可能大于缓冲区大小，先保存多出数据下次一起拷贝
+          destLeaveSamples = destDataSamples - writeSample;
+          if (destLeaveSamples > 0)
+            audioOutLeave->AppendNoIncrease(audioOutBuffer[0] + writeSize, destDataSize - writeSize);
+        }
+      }
+      else {
+        LOGDF("No audio data, idle");
       }
     }
 

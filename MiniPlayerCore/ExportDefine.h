@@ -4,4 +4,7 @@
 #define MINI_PLAYER_EXPORT __declspec(dllexport)
 #define MINI_PLAYER_EXPORT_C(ret) EXTERN_C ret __declspec(dllexport)
 
+#else
+#define MINI_PLAYER_EXPORT_C(ret) EXTERN_C ret __declspec(dllimport)
+
 #endif

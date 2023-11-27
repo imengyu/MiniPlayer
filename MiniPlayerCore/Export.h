@@ -136,6 +136,14 @@ struct READ_VIDEO_INFO {
   int height;
   //当前视频的帧率
   double frameRate;
+  //当前视频的帧率
+  double avgFrameRate;
+  //当前主音频的采样率
+  double simpleRate;
+  //指示是否是视频
+  bool isVideo;
+  //指示是否是音频
+  bool isAudio;
 };
 
 //

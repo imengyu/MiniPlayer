@@ -74,7 +74,7 @@ private:
   uint32_t destNbSample = 0;//aac大小
   int destLinesize = 0;
   uint32_t destDataSizePerSample = 0;//一个采样的数据大小（单通道）
-  uint32_t destLeaveSamples = 0;//拷贝剩余采样数量
+  int64_t destLeaveSamples = 0;//拷贝剩余采样数量
   int destChannels = 0;
 
   //时钟

@@ -274,19 +274,25 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 			break;
 		}
 	}
-	if (videoIndex == -1) {
-		swprintf_s(result->lastError, L"Not found video stream!");
-		goto EXIT;
+	if (videoIndex >= 0) {
+		videoStream = formatContext->streams[videoIndex];
+
+		result->width = videoStream->codecpar->width;
+		result->height = videoStream->codecpar->height;
+		result->frameRate = (double)videoStream->r_frame_rate.num / videoStream->r_frame_rate.den;
+		result->avgFrameRate = (double)videoStream->avg_frame_rate.num / videoStream->avg_frame_rate.den;
+		result->isVideo = true;
+
 	}
+	if (audioIndex >= 0) {
 
-	videoStream = formatContext->streams[videoIndex];
-	audioStream = formatContext->streams[audioIndex];
-
-	result->width = videoStream->codecpar->width;
-	result->height = videoStream->codecpar->height;
+		audioStream = formatContext->streams[audioIndex];
+		result->simpleRate = (double)audioStream->r_frame_rate.num / audioStream->r_frame_rate.den;
+		result->isAudio = true;
+	}
+	
 	result->duration = (double)formatContext->duration / AV_TIME_BASE; //s
-	result->frameRate = (double)videoStream->r_frame_rate.num / videoStream->r_frame_rate.den;
-	strcpy_s(result->format, formatContext->iformat->long_name);
+	sprintf_s(result->format, "%s %s", formatContext->iformat->name, formatContext->iformat->long_name);
 	result->success = true;
 
 EXIT:

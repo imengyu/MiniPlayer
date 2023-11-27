@@ -49,7 +49,7 @@ public:
   bool Enable = true;
 
   virtual void Render(SDL_Renderer* render, int viewWidth, int viewHeight) {}
-  virtual bool Create() {}
+  virtual bool Create() { return false;  }
   virtual void Release() {}
 };
 

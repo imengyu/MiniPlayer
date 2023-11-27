@@ -63,11 +63,11 @@ void DoPlaySound(wchar_t* strFilename) {
 	DestroySoundPlayer(player);
 }
 
-void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
+void DoPlayVideo(wchar_t* strFilename, READ_VIDEO_INFO*info) {
 	PlayVideoData playData;
 	CCVideoPlayerInitParams params;
 	uint32_t _FPS_Timer = 0;
-	const uint32_t FPS = 1000 / fps;
+	const uint32_t FPS = 1000 / (info->frameRate > 0 ? info->frameRate : 1);
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = 408;
@@ -77,7 +77,6 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 	params.SyncRender = true;
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
-	//player->SetVideoPush(true, "rtsp", "rtsp://127.0.0.1/live");
 
 	//播放器回调
 	player->SetPlayerEventCallback([](CCVideoPlayerAbstract* player, int message, void* eventData, void* customData) {
@@ -174,27 +173,29 @@ void DoPlayVideo(wchar_t* strFilename, int width, int height, int fps) {
 		}
 		_FPS_Timer = SDL_GetTicks();
 
-		//渲染
-		if (player->GetVideoState() == CCVideoState::Playing) {
-			auto rdcData = player->SyncRenderStart();
-			if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
-				SDL_UpdateYUVTexture(
-					playData.texture,
-					NULL,
-					rdcData->data[0], rdcData->linesize[0],
-					rdcData->data[1], rdcData->linesize[1],
-					rdcData->data[2], rdcData->linesize[2]
-				);
-			}
-			player->SyncRenderEnd();
+		if (info->isVideo) {
+			//渲染
+			if (player->GetVideoState() == CCVideoState::Playing) {
+				auto rdcData = player->SyncRenderStart();
+				if (rdcData && rdcData->width > 0 && rdcData->height > 0) {
+					SDL_UpdateYUVTexture(
+						playData.texture,
+						NULL,
+						rdcData->data[0], rdcData->linesize[0],
+						rdcData->data[1], rdcData->linesize[1],
+						rdcData->data[2], rdcData->linesize[2]
+					);
+				}
+				player->SyncRenderEnd();
 
-			playData.rect.x = 0;
-			playData.rect.y = 0;
-			playData.rect.w = params.DestWidth;
-			playData.rect.h = params.DestHeight;
-			SDL_RenderClear(playData.render);
-			SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
-			SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
+				playData.rect.x = 0;
+				playData.rect.y = 0;
+				playData.rect.w = params.DestWidth;
+				playData.rect.h = params.DestHeight;
+				SDL_RenderClear(playData.render);
+				SDL_RenderCopy(playData.render, playData.texture, nullptr, &playData.rect);//纹理拷贝到显卡渲染
+				SDL_RenderPresent(playData.render);//开始渲染图像并拷贝到显示器
+			}
 		}
 		if (player->GetVideoState() == CCVideoState::Ended)
 			playData.quit = true;
@@ -221,18 +222,10 @@ DESTROY:
 void DoReadVideo(wchar_t* strFilename) {
 	auto info = GetVideoInfo(strFilename);
 
-	if (info->success) {
-		wprintf(L"GetVideoInfo success\n");
-		wprintf(L"duration: %f\n", info->duration);
-		wprintf(L"width: %d\n", info->width);
-		wprintf(L"height: %d\n", info->height);
-		wprintf(L"frameRate: %f\n", info->frameRate);
-
-		DoPlayVideo(strFilename, info->width, info->height, (int)info->frameRate);
-	}
-	else {
+	if (info->success)
+		DoPlayVideo(strFilename, info);
+	else
 		wprintf(L"GetVideoInfo Failed %s\n", info->lastError);
-	}
 
 	ReleaseVideoInfo(info);
 }
@@ -246,7 +239,7 @@ int RunPlayer(const char* path) {
 		OPENFILENAME ofn = { 0 };
 		ofn.lStructSize = sizeof(OPENFILENAME);
 		ofn.hwndOwner = GetConsoleWindow();
-		ofn.lpstrFilter = TEXT("音乐文件\0*.mp4;*.mp3;*.wav;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤
+		ofn.lpstrFilter = TEXT("音乐或者视频文件\0;*.mkv;*.mp4;*.mp3;*.wav;*.wma;*.ogg;*.flac;*.aac\0All(*.*)\0*.*\0\0\0");//设置过滤
 		ofn.nFilterIndex = 1;//过滤器索引
 		ofn.lpstrFile = strFilename;
 		ofn.nMaxFile = sizeof(strFilename);
@@ -265,6 +258,7 @@ int RunPlayer(const char* path) {
 		StringHelper::EndWith(strFilename, L".wav") ||
 		StringHelper::EndWith(strFilename, L".ogg") ||
 		StringHelper::EndWith(strFilename, L".flac") ||
+		StringHelper::EndWith(strFilename, L".wma") ||
 		StringHelper::EndWith(strFilename, L".aac")
 	) {
 		DoPlaySound(strFilename);
