@@ -346,6 +346,7 @@ void CSoundDevice::PlayerThread(void* p)
   bool hasMoreData;
   bool hasError = false;
   bool reCreateDevice = false;
+  bool rePlayAfterCreateDevice = false;
 
   device->threadLock.lock();
 
@@ -455,6 +456,13 @@ RESET:
   // 计算分配的缓冲区的实际持续时间。
   hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * requestFrameCount / pwfx->nSamplesPerSec);
 
+  //创建后重新开始
+  if (rePlayAfterCreateDevice) {
+    rePlayAfterCreateDevice = false;
+    pAudioClient->Start();
+    device->isStarted = true;
+  }
+
   //循环
   while (device->GetThreadStatus())
   {
@@ -528,9 +536,11 @@ RESET:
           //停止并且退出
           pAudioClient->Stop();
 
-          if (preload == CSoundDevicePreloadType::PreloadReload)
+          if (preload == CSoundDevicePreloadType::PreloadReload) {
             //有不同参数的预加载，需要重新创建音频
             reCreateDevice = true;
+            rePlayAfterCreateDevice = true;
+          }
           goto EXIT;
         }
         case CSoundDevicePreloadType::PreloadSame: {
