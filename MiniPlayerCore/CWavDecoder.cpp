@@ -143,12 +143,15 @@ DWORD CWavDecoder::SeekToSample(DWORD sec)
 double CWavDecoder::SeekToSecond(double sec)
 {
 	_CurSec = sec;
-	return (double)Seek((LONG)(_BitPerSample*sec), SEEK_SET);
+	Seek((LONG)(_BitPerSample*sec), SEEK_SET);
+	return _CurSec;
 }
 size_t CWavDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
 	if (hStream) {
 		long l = mmioRead(hStream, (HPSTR)_Buffer, _BufferSize);
+		if (l < 0)
+			return 0;
 		cur += l;
 		return l;
 	}
@@ -157,9 +160,11 @@ size_t CWavDecoder::Read(void * _Buffer, size_t _BufferSize)
 int CWavDecoder::Seek(long _Offset, int _Origin)
 {
 	if (hStream) {
-		if (_Origin == SEEK_SET)cur = _Offset;
-		else if (_Origin == SEEK_CUR)cur += _Offset;
-		return mmioSeek(hStream, _Offset, _Origin);
+		auto ret = mmioSeek(hStream, _Offset, _Origin);
+		if (ret >= 0) {
+			cur = ret;
+			return ret;
+		}
 	}
 	return 0;
 }

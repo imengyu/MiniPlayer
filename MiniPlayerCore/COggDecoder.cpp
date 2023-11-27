@@ -134,11 +134,18 @@ DWORD COggDecoder::GetCurrentPositionSample()
 }
 DWORD COggDecoder::SeekToSample(DWORD sp)
 {
-	return ov_pcm_seek(&_OggFile, static_cast<ogg_int64_t>(sp));
+	auto ret = ov_pcm_seek(&_OggFile, static_cast<ogg_int64_t>(sp));
+	if (ret == 0)
+		return sp;
+	return (DWORD)m_CurSample;
 }
 double COggDecoder::SeekToSecond(double sec)
 {
-	return ov_pcm_seek(&_OggFile, static_cast<ogg_int64_t>(sec*m_SampleRate));
+	auto secRet = sec * m_SampleRate;
+	auto ret = ov_pcm_seek(&_OggFile, static_cast<ogg_int64_t>(secRet));
+	if (ret == 0)
+		return secRet;
+	return (double)m_Samples / (double)m_SampleRate;
 }
 
 size_t COggDecoder::Read(void * _Buffer, size_t _BufferSize)
