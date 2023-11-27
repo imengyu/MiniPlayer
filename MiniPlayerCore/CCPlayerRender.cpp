@@ -429,8 +429,8 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
     AVFrame* frame = externalData->DecodeQueue->AudioFrameDequeue();
     if (frame == nullptr) {
       memset(buf, 0, buf_len);
-      LOGDF("No audio frame, idle");
-      return true;
+      //LOGDF("No audio frame, idle");
+      return false;
     }
 
     //时钟
@@ -478,7 +478,7 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
 
         if (needCopySample > writeSample) {
           //当前帧缺失一些数据，再解码一帧，填满缓冲区
-          LOGDF("Lack sample: %d Clock: %f", -destLeaveSamples, currentAudioClock);
+          //LOGDF("Lack sample: %d Clock: %f", -destLeaveSamples, currentAudioClock);
           destLeaveSamples = 0;
           externalData->DecodeQueue->ReleaseFrame(frame);
           goto REQUEST_FRAME;
@@ -490,9 +490,9 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
             audioOutLeave->AppendNoIncrease(audioOutBuffer[0] + writeSize, destDataSize - writeSize);
         }
       }
-      else {
-        LOGDF("No audio data, idle");
-      }
+      //else {
+      //  //LOGDF("No audio data, idle");
+      //}
     }
 
     externalData->DecodeQueue->ReleaseFrame(frame);

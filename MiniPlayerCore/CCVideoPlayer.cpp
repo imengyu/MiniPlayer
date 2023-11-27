@@ -269,10 +269,12 @@ int64_t CCVideoPlayer::GetVideoPos() {
   if (!render || !formatContext)
     return -1;
 
-  //if (audioIndex != -1)
-  //  return (int64_t)(render->GetCurAudioPts() * av_q2d(formatContext->streams[audioIndex]->time_base) * 1000);
-  //else
+  if (videoIndex != -1)
     return (int64_t)(render->GetCurVideoPts() * av_q2d(formatContext->streams[videoIndex]->time_base) * 1000);
+  if (audioIndex != -1)
+    return (int64_t)(render->GetCurAudioPts() * av_q2d(formatContext->streams[audioIndex]->time_base) * 1000);
+
+  return -1;
 }
 bool CCVideoPlayer::GetVideoPush() { return pushMode; }
 bool CCVideoPlayer::GetVideoLoop() { return loop; }
@@ -812,10 +814,10 @@ void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
         delete task;
     }
     else if (
-      self->decoderVideoFinish && self->decoderAudioFinish && self->render->NoMoreVideoFrame() &&
-      (self->decodeState > CCDecodeState::NotInit && self->decodeState != CCDecodeState::Finished) &&
+      self->decoderVideoFinish && self->decoderAudioFinish && 
+      (self->render->NoMoreVideoFrame() || self->videoIndex == -1) &&
       self->videoState == CCVideoState::Playing
-      ) {
+     ) {
       auto pos = self->GetVideoPos();
       auto dur = self->GetVideoLength();
       if (pos >= dur - 1000 || pos == -1) {
