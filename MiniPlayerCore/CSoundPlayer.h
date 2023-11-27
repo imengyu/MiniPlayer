@@ -73,10 +73,12 @@ private:
 	CSoundPlayerEventCallback eventCallback;
 
 	void CallEventCallback(int event, void* eventDataData); 
+	void PostEventCallback(int event, void* eventDataData);
 
 	CCEvent eventWorkerThreadQuit;
 	bool workerThreadEnable = false;
 	CCAsyncTaskQueue workerQueue;
+	CCAsyncTaskQueue postBackQueue;
 	std::thread* workerThread;
 	void StartWorkerThread();
 	void StopWorkerThread();

@@ -528,12 +528,9 @@ RESET:
           //停止并且退出
           pAudioClient->Stop();
 
-          if (preload == CSoundDevicePreloadType::PreloadReload) {
+          if (preload == CSoundDevicePreloadType::PreloadReload)
             //有不同参数的预加载，需要重新创建音频
             reCreateDevice = true;
-            SetEvent(device->hEventPlay);
-          }
-
           goto EXIT;
         }
         case CSoundDevicePreloadType::PreloadSame: {

@@ -58,6 +58,11 @@ struct CSoundPlayerAsyncTask : public CCAsyncTask {
 	std::wstring Path;
 };
 
+struct CSoundPlayerPostEventAsyncTask : public CCAsyncTask {
+	int event;
+	void* eventDataData;
+};
+
 class CSoundPlayer;
 
 //播放器事件回调

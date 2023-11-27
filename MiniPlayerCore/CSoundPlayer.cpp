@@ -58,6 +58,7 @@ bool CSoundPlayerImpl::Load(const wchar_t* path)
 	if (decoder != nullptr) {
 		openedFileFormat = thisFileFormat;
 		if (decoder->Open(path)) {
+			fileOpenedState = true;
 			decoder->SeekToSecond(0);
 			playerStatus = TPlayerStatus::Opened;
 
@@ -121,14 +122,13 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 		return false;
 	}
 
-	//如果之前的预加载解码器与当前格式不一致，则销毁之前的，重新创建
-	if (preloadDecoder && preloadDecoder->GetFormat() != thisFileFormat) {
+	if (preloadDecoder) {
 		delete preloadDecoder;
 		preloadDecoder = nullptr;
 	}
 
-	if (!preloadDecoder)
-		preloadDecoder = CreateDecoderWithFormat(thisFileFormat);
+	preloadDecoder = CreateDecoderWithFormat(thisFileFormat);
+
 	if (!preloadDecoder) {
 		preloadStatus = TPlayerStatus::NotOpen;
 		preloadLock.unlock();
@@ -142,8 +142,8 @@ bool CSoundPlayerImpl::PreLoad(const wchar_t* path)
 		return true;
 	}
 
-	preloadLock.unlock();
 	preloadStatus = TPlayerStatus::NotOpen;
+	preloadLock.unlock();
 	return false;
 }
 bool CSoundPlayerImpl::Close()
@@ -322,6 +322,16 @@ void CSoundPlayerImpl::WorkerThread(CSoundPlayerImpl* self) {
 				delete task;
 		}
 
+		auto postEventTask = (CSoundPlayerPostEventAsyncTask*)(self->postBackQueue.Pop());
+		if (postEventTask) {
+			if (self->eventCallback)
+				self->eventCallback(
+					self, postEventTask->event, postEventTask->eventDataData,
+					self->eventCallbackCustomData
+				);
+			delete postEventTask;
+		}
+
 		Sleep(50);
 	}
 
@@ -346,7 +356,10 @@ double CSoundPlayerImpl::GetDuration()
 }
 bool CSoundPlayerImpl::IsPreLoad()
 {
-	return preloadReadyState;
+	preloadLock.lock();
+	auto result = preloadReadyState;
+	preloadLock.unlock();
+	return result;
 }
 unsigned int CSoundPlayerImpl::GetDurationSample()
 {
@@ -392,6 +405,13 @@ void CSoundPlayerImpl::CallEventCallback(int event, void* eventDataData)
 {
 	if (eventCallback)
 		eventCallback(this, event, eventDataData, eventCallbackCustomData);
+}
+void CSoundPlayerImpl::PostEventCallback(int event, void* eventDataData)
+{
+	auto task = new CSoundPlayerPostEventAsyncTask();
+	task->event = event;
+	task->eventDataData = eventDataData;
+	postBackQueue.Push(task);
 }
 void CSoundPlayerImpl::SetEventCallback(CSoundPlayerEventCallback callback, void* customData)
 {
@@ -500,7 +520,7 @@ CSoundDevicePreloadType CSoundPlayerImpl::PlayAlmostEndAndCheckPrelod()
 		currentChannels = decoder->GetChannelsCount();
 		currentBitsPerSample = decoder->GetBitsPerSample();
 
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
+		PostEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
 		preloadReadyState = false; //已使用预加载
 
 		preloadLock.unlock();
@@ -513,11 +533,11 @@ void CSoundPlayerImpl::NotifyPlayEnd(bool error)
 {
 	if (error) {
 		Close();
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_ERROR, nullptr);
+		PostEventCallback(SOUND_PLAYER_EVENT_PLAY_ERROR, nullptr);
 	}
 	else if (playerStatus == Playing && playerStatus != PlayEnd) {
 		playerStatus = PlayEnd;
-		CallEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
+		PostEventCallback(SOUND_PLAYER_EVENT_PLAY_END, nullptr);
 	}
 }
 
