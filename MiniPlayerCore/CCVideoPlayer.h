@@ -75,8 +75,8 @@ public:
     void SetLastError(int code, const wchar_t* errmsg);
     void SetLastError(int code, const char* errmsg);
 
-    void CallPlayerEventCallback(int message, void* data);
-    void CallPlayerEventCallback(int message);
+    void CallPlayerEventCallback(int message, void* data = nullptr);
+    void PostPlayerEventCallback(int message, void* data = nullptr);
 
     CCVideoPlayerCallbackDeviceData* SyncRenderStart(); 
     void SyncRenderEnd();
@@ -202,11 +202,18 @@ private:
 
     std::mutex setVideoStateLock;
 
+    CCAsyncTaskQueue postBackQueue;
 
     void DoSetVideoState(CCVideoState state);
     std::string GetAvError(int code);
 
     static void FFmpegLogFunc(void* ptr, int level, const char* fmt,va_list vl);
+};
+
+
+struct CCVideoPlayerPostEventAsyncTask : public CCAsyncTask {
+  int event;
+  void* eventDataData;
 };
 
 #endif //VR720_CCVIDEOPLAYER_H

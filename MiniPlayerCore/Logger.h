@@ -130,16 +130,26 @@ private:
 #undef LOGD
 
 #define LOG Logger::GetStaticInstance()
+
+#if _DEBUG
 #define LOGI(fmt) Logger::GetStaticInstance()->LogInfo(fmt)
-#define LOGW(fmt) Logger::GetStaticInstance()->LogWarn(fmt)
-#define LOGE(fmt) Logger::GetStaticInstance()->LogError(fmt)
 #define LOGD(fmt) Logger::GetStaticInstance()->Log(fmt)
 #define LOGIF(fmt, ...) Logger::GetStaticInstance()->LogInfo(fmt, __VA_ARGS__)
+#define LOGDF(fmt, ...) Logger::GetStaticInstance()->Log(fmt, __VA_ARGS__)
+#define Log2(str, ...) Log2(str, __FILE__, __LINE__, __FUNCTION__,__VA_ARGS__)
+#else
+#define LOGI(fmt)
+#define LOGD(fmt)
+#define LOGIF(fmt, ...)
+#define LOGDF(fmt, ...)
+#define Log2(str, ...)
+#endif
+
+#define LOGW(fmt) Logger::GetStaticInstance()->LogWarn(fmt)
+#define LOGE(fmt) Logger::GetStaticInstance()->LogError(fmt)
 #define LOGWF(fmt, ...) Logger::GetStaticInstance()->LogWarn(fmt, __VA_ARGS__)
 #define LOGEF(fmt, ...) Logger::GetStaticInstance()->LogError(fmt, __VA_ARGS__)
-#define LOGDF(fmt, ...) Logger::GetStaticInstance()->Log(fmt, __VA_ARGS__)
 
 #define LogError2(str, ...) LogError2(str, __FILE__, __LINE__, __FUNCTION__,__VA_ARGS__)
 #define LogWarn2(str, ...) LogWarn2(str, __FILE__, __LINE__, __FUNCTION__,__VA_ARGS__)
 #define LogInfo2(str, ...) LogInfo2(str, __FILE__, __LINE__, __FUNCTION__,__VA_ARGS__)
-#define Log2(str, ...) Log2(str, __FILE__, __LINE__, __FUNCTION__,__VA_ARGS__)

@@ -150,6 +150,30 @@ void DoPlayVideo(wchar_t* strFilename, READ_VIDEO_INFO*info) {
 		case SDL_QUIT:
 			playData.quit = true;
 			break;
+		case SDL_KEYDOWN:
+			switch (playData.event.key.keysym.sym) {
+			case SDLK_0: {
+				int p = 1000;
+				player->PostWorkerThreadCommand(VIDEO_PLAYER_ASYNC_TASK_SET_POS, (void*)p);
+				break;
+			}
+			case SDLK_1:
+				player->SetVideoPos(2000);
+				break;
+			case SDLK_2:
+				player->SetVideoPos(3000);
+				break;
+			case SDLK_3:
+				player->SetVideoPos(4000);
+				break;
+			case SDLK_4:
+				player->SetVideoPos(5000);
+				break;
+			case SDLK_5:
+				player->SetVideoPos(6000);
+				break;
+			}
+			break;
 		case SDL_WINDOWEVENT:
 			if (playData.event.window.event == SDL_WINDOWEVENT_RESIZED)
 				player->RenderUpdateDestSize(playData.event.window.data1, playData.event.window.data2);

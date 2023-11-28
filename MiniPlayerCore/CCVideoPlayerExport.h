@@ -71,6 +71,10 @@ public:
    */
   size_t MaxRenderQueueSize = 16;
   /**
+   * 同步队列增长步长
+   */
+  size_t RenderQueueSizeGrowStep = 16;
+  /**
    * 包队列初始大小
    */
   size_t PacketPoolSize = 32;

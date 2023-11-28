@@ -18,8 +18,11 @@ CCVideoPlayer::~CCVideoPlayer() {
   Destroy();
 }
 
-void CCVideoPlayer::CallPlayerEventCallback(int message) {
-  CallPlayerEventCallback(message, nullptr);
+void CCVideoPlayer::PostPlayerEventCallback(int message, void* data) {
+  auto task = new CCVideoPlayerPostEventAsyncTask();
+  task->event = message;
+  task->eventDataData = data;
+  postBackQueue.Push(task);
 }
 void CCVideoPlayer::CallPlayerEventCallback(int message, void* data) {
   if (videoPlayerEventCallback != nullptr)
@@ -72,7 +75,7 @@ bool CCVideoPlayer::OpenVideo(const char* filePath) {
     return false;
   }
 
-  CallPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
+  PostPlayerEventCallback(PLAYER_EVENT_INIT_DECODER_DONE);
   LOGD("DoOpenVideo: InitDecoder done");
 
   decodeQueue.Reset();
@@ -118,7 +121,7 @@ bool CCVideoPlayer::CloseVideo() {
   DoSetVideoState(CCVideoState::NotOpen);
   closeDoneEvent.NotifyOne();
 
-  CallPlayerEventCallback(PLAYER_EVENT_CLOSED);
+  PostPlayerEventCallback(PLAYER_EVENT_CLOSED);
   LOGD("DoCloseVideo: Done");
 
   return true;
@@ -185,13 +188,15 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     return false;
   }
 
+  playerSeeking = true;
+
+  seekDest = externalData.StartTime + pos;
+
   if (seekDest == render->GetCurVideoPts()) {
-    CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+    PostPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
     LOGD("Seek: Seek done");
     return true;
   }
-
-  playerSeeking = true;
 
   if (videoState == CCVideoState::Playing) {
     LOGD("Seek: Stop before seek");
@@ -201,14 +206,13 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     render->Stop();
   }
 
-  seekDest = externalData.StartTime + pos;
-
   LOGDF("Seek: Seek to %d", seekDest);
 
   //跳转到指定帧
 
   int ret;
-  {
+
+  if (videoIndex != -1) {
 
     seekPosVideo = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[videoIndex]->time_base);
     if (seekPosVideo > render->GetCurVideoPts())
@@ -221,21 +225,17 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
       playerSeeking = false;
       return false;
     }
-
-    //avcodec_flush_buffers(videoCodecContext);//清空缓存数据
+    avcodec_flush_buffers(videoCodecContext);//清空缓存数据
   }
 
-  /*
   if(audioIndex != -1) {
-      seekPosAudio = av_rescale_q(seekDest * 1000, AV_TIME_BASE_Q, formatContext->streams[audioIndex]->time_base);
-      ret = av_seek_frame(formatContext, audioIndex, seekPosAudio,
-                              (uint) AVSEEK_FLAG_BACKWARD | (uint) AVSEEK_FLAG_ANY);
+      seekPosAudio = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[audioIndex]->time_base);
+      ret = av_seek_frame(formatContext, audioIndex, seekPosAudio, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY);
       if (ret != 0)
           LOGEF("av_seek_frame audio failed : %s", GetAvError(ret).c_str());
       else
           avcodec_flush_buffers(audioCodecContext);//清空缓存数据
   }
-  */
 
   //清空队列中所有残留数据
   decodeQueue.ClearAll();
@@ -250,7 +250,7 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     render->Start();
   }
 
-  CallPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
+  PostPlayerEventCallback(PLAYER_EVENT_SEEK_DONE);
   LOGD("Seek: Seek done"); 
   
   playerSeeking = false;
@@ -558,7 +558,7 @@ bool CCVideoPlayer::InitDecoder() {
           type = AVHWDeviceType::AV_HWDEVICE_TYPE_NONE;
           videoCodecContext->get_format = nullptr;
           hw_can_use = false;
-          CallPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
+          PostPlayerEventCallback(PLAYER_EVENT_INIT_HW_DECODER_FAIL);
         }
         else {
           hw_can_use = true;
@@ -828,10 +828,21 @@ void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
         self->decodeState = CCDecodeState::Finished;
         self->DoSetVideoState(CCVideoState::Ended);
 
-        self->CallPlayerEventCallback(PLAYER_EVENT_PLAY_END);
+        self->PostPlayerEventCallback(PLAYER_EVENT_PLAY_END);
         LOGIF("PlayerWorkerThread: decodeState -> Finished pos/dur: %d/%d", pos, dur);
       }
     }
+
+    auto postEventTask = (CCVideoPlayerPostEventAsyncTask*)(self->postBackQueue.Pop());
+    if (postEventTask) {
+      if (self->videoPlayerEventCallback)
+        self->videoPlayerEventCallback(
+          self, postEventTask->event, postEventTask->eventDataData,
+          self->videoPlayerEventCallbackData
+        );
+      delete postEventTask;
+    }
+
     Sleep(50);
   }
 
@@ -860,20 +871,28 @@ void* CCVideoPlayer::DecoderWorkerThread() {
 
   while (decodeState == CCDecodeState::Decoding) {
 
-    auto maxMaxRenderQueueSize =  InitParams.MaxRenderQueueSize;
-    if (
-      decodeQueue.AudioQueueSize() > maxMaxRenderQueueSize || 
-      decodeQueue.VideoQueueSize() > maxMaxRenderQueueSize
-    ) {
+    bool queueFull = false;
+    auto maxMaxRenderQueueSize = InitParams.MaxRenderQueueSize;
+
+    if (videoIndex == -1)
+      queueFull = decodeQueue.AudioQueueSize() >= maxMaxRenderQueueSize;
+    else 
+      queueFull = decodeQueue.VideoQueueSize() >= maxMaxRenderQueueSize;
+
+    if (queueFull) {
       av_usleep(10000);
       continue;
     }
     else if (start <= 0) {
-      av_usleep(100);
+      av_usleep(100); //目的是在刚开始时不延时，全速解码保证可以最快显示
     }
-    else {
+    else if (start > 0) {
       start--;
     }
+    else {
+      av_usleep(1000);
+    }
+
 
     AVPacket* avPacket = decodeQueue.RequestPacket();
     if (!avPacket)
