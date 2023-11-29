@@ -8,7 +8,8 @@
 #include "CCVideoPlayer.h"
 #include "Logger.h"
 
-#define MAX_INCREASE_SIZE 1024
+#define MAX_INCREASE_VIDEO_QUEUE_SIZE 1024
+#define MAX_INCREASE_AUIDO_QUEUE_SIZE MAX_INCREASE_VIDEO_QUEUE_SIZE * 8
 #define MAX_ALLOCATE_FRAME 1300
 
 void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
@@ -20,9 +21,9 @@ void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
     framePool.alloc(data->InitParams->FramePoolSize);
 
     videoQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
-    audioQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
+    audioQueue.alloc(data->InitParams->MaxRenderQueueSize * 8);
     videoFrameQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
-    audioFrameQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
+    audioFrameQueue.alloc(data->InitParams->MaxRenderQueueSize * 8);
 
     AllocFramePool(data->InitParams->FramePoolSize);
     AllocPacketPool(data->InitParams->PacketPoolSize);
@@ -54,7 +55,7 @@ void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
     audioQueue.push(pkt);
   }
 
-  Assert(audioQueue.capacity() < MAX_INCREASE_SIZE);
+  Assert(audioQueue.capacity() < MAX_INCREASE_AUIDO_QUEUE_SIZE);
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -89,7 +90,7 @@ void CCDecodeQueue::VideoEnqueue(AVPacket* pkt) {
     videoQueue.push(pkt);
   }
 
-  Assert(videoQueue.capacity() < MAX_INCREASE_SIZE);
+  Assert(videoQueue.capacity() < MAX_INCREASE_VIDEO_QUEUE_SIZE);
 
   videoFrameQueueRequestLock.unlock();
 }
