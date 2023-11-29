@@ -38,12 +38,14 @@ public:
     void ReleaseFrame(AVFrame *frame);
 
     size_t AudioQueueSize();
+    bool AudioQueueNotNeedFill();
     void AudioEnqueue(AVPacket *pkt);
     AVPacket* AudioDequeue();
     void AudioQueueBack(AVPacket *packet);
 
     int VideoDrop(double targetClock);
-    size_t VideoQueueSize();
+    size_t VideoQueueSize(); 
+    bool VideoQueueNotNeedFill();
     void VideoEnqueue(AVPacket *pkt);
     AVPacket* VideoDequeue();
     void VideoQueueBack(AVPacket *packet);

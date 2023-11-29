@@ -12,7 +12,10 @@ void DbgAssert(int condition, const char* file, int line, const char* message)
 		OutputDebugStringA(finalMessage.c_str());
 		DebugBreak();
 #endif
-		MessageBoxA(GetForegroundWindow(), finalMessage.c_str(), "Error", MB_ICONERROR);
+		if (IsDebuggerPresent())
+			DebugBreak();
+		else
+			MessageBoxA(GetForegroundWindow(), finalMessage.c_str(), "Error", MB_ICONERROR);
 		exit(-1);
 	}
 }

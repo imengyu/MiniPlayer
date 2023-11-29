@@ -81,6 +81,8 @@ private:
   double currentAudioClock = 0;
   double currentVideoClock = 0;
 
+  int dropCount = 0;
+
 
   //***************************************
   //状态控制

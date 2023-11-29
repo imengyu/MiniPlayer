@@ -93,6 +93,7 @@ private:
   HANDLE hEventResetDone;
   HANDLE hEventDestroy;
   HANDLE hEventPlay;
+  HANDLE hEventPlayDone;
   HANDLE hEventStop;
   HANDLE hEventStopDone;
   HANDLE hEventLoadData;

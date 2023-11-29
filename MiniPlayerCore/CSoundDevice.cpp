@@ -35,11 +35,13 @@ CSoundDevice::CSoundDevice(CSoundDeviceHoster* parent)
   hEventVolumeUpdate = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventGetVolume = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventGetPadding = CreateEvent(NULL, TRUE, FALSE, NULL);
+  hEventPlayDone = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 CSoundDevice::~CSoundDevice()
 {
   Destroy();
   CloseHandle(hEventCreateDone);
+  CloseHandle(hEventPlayDone);
   CloseHandle(hEventDestroyDone);
   CloseHandle(hEventResetDone);
   CloseHandle(hEventDestroy);
@@ -292,7 +294,9 @@ bool CSoundDevice::Start()
 {
   if (!GetThreadStatus() && !Create())
     return false;
+  ResetEvent(hEventPlayDone);
   SetEvent(hEventPlay);
+  WaitForSingleObject(hEventPlayDone, 2000);
   return true;
 }
 
@@ -328,6 +332,8 @@ void CSoundDevice::SetThreadStatus(bool newVal)
 
 void CSoundDevice::PlayerThread(void* p)
 {
+  LOGD("CSoundDevice PlayerThread Start");
+
   auto device = (CSoundDevice*)p;
   HRESULT hr;
   REFERENCE_TIME hnsActualDuration;
@@ -372,6 +378,8 @@ void CSoundDevice::PlayerThread(void* p)
   EXIT_ON_ERROR(hr);
 
 RECREATE:
+  SetEvent(device->hEventVolumeUpdate);
+
   defaultDeviceId = device->parent->GetDefaultOutputDeviceId();
   if (defaultDeviceId && wcscmp(defaultDeviceId, L"") != 0)
     hr = pEnumerator->GetDevice(defaultDeviceId, &pDevice);
@@ -477,6 +485,7 @@ RESET:
       ResetEvent(device->hEventPlay);
       pAudioClient->Start();
       device->isStarted = true;
+      SetEvent(device->hEventPlayDone);
       break;
     case 2:
       //Í£Ö¹²¥·Å
@@ -626,4 +635,6 @@ EXIT:
   SetEvent(device->hEventDestroyDone);
 
   device->threadLock.unlock();
+
+  LOGD("CSoundDevice PlayerThread Exit");
 }

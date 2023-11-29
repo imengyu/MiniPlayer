@@ -8,9 +8,9 @@
 #include "CCVideoPlayer.h"
 #include "Logger.h"
 
-#define MAX_INCREASE_VIDEO_QUEUE_SIZE 1024
-#define MAX_INCREASE_AUIDO_QUEUE_SIZE MAX_INCREASE_VIDEO_QUEUE_SIZE * 8
-#define MAX_ALLOCATE_FRAME 1300
+#define MAX_INCREASE_VIDEO_QUEUE_SIZE 128
+#define MAX_INCREASE_AUIDO_QUEUE_SIZE 256
+#define MAX_ALLOCATE_FRAME 1024
 
 void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
 
@@ -20,10 +20,10 @@ void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
     packetPool.alloc(data->InitParams->PacketPoolSize);
     framePool.alloc(data->InitParams->FramePoolSize);
 
-    videoQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
-    audioQueue.alloc(data->InitParams->MaxRenderQueueSize * 8);
-    videoFrameQueue.alloc(data->InitParams->MaxRenderQueueSize * 2);
-    audioFrameQueue.alloc(data->InitParams->MaxRenderQueueSize * 8);
+    videoQueue.alloc(data->InitParams->MaxRenderQueueSize);
+    audioQueue.alloc(data->InitParams->MaxRenderQueueSize * 4);
+    videoFrameQueue.alloc(data->InitParams->MaxFrameQueueSize);
+    audioFrameQueue.alloc(data->InitParams->MaxFrameQueueSize);
 
     AllocFramePool(data->InitParams->FramePoolSize);
     AllocPacketPool(data->InitParams->PacketPoolSize);
@@ -51,11 +51,14 @@ void CCDecodeQueue::AudioEnqueue(AVPacket* pkt) {
   audioFrameQueueRequestLock.lock();
 
   if (!audioQueue.push(pkt)) {
-    audioQueue.increase(externalData->InitParams->RenderQueueSizeGrowStep);
-    audioQueue.push(pkt);
+    if (audioQueue.capacity() < MAX_INCREASE_AUIDO_QUEUE_SIZE) {
+      audioQueue.increase(externalData->InitParams->RenderQueueSizeGrowStep);
+      audioQueue.push(pkt);
+    }
+    else {
+      ReleasePacket(pkt);
+    }
   }
-
-  Assert(audioQueue.capacity() < MAX_INCREASE_AUIDO_QUEUE_SIZE);
 
   audioFrameQueueRequestLock.unlock();
 }
@@ -81,6 +84,10 @@ void CCDecodeQueue::AudioQueueBack(AVPacket* packet) {
 }
 size_t CCDecodeQueue::AudioQueueSize() {
   return audioQueue.size();
+}
+bool CCDecodeQueue::AudioQueueNotNeedFill() {
+  auto size = AudioQueueSize();
+  return size > externalData->InitParams->MinRenderQueueSize;
 }
 void CCDecodeQueue::VideoEnqueue(AVPacket* pkt) {
   videoFrameQueueRequestLock.lock();
@@ -118,6 +125,11 @@ void CCDecodeQueue::VideoQueueBack(AVPacket* packet) {
 size_t CCDecodeQueue::VideoQueueSize() {
   return videoQueue.size();
 }
+bool CCDecodeQueue::VideoQueueNotNeedFill() {
+  auto size = VideoQueueSize();
+  return size > externalData->InitParams->MaxRenderQueueSize;
+}
+
 
 //已经解码的数据队列
 

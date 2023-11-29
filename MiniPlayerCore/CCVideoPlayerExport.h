@@ -67,13 +67,21 @@ struct CCVideoPlayerAsyncTask : public CCAsyncTask {
 class CCVideoPlayerInitParams {
 public:
   /**
-   * 同步队列最大大小
+   * 帧队列最大大小
    */
-  size_t MaxRenderQueueSize = 16;
+  size_t MaxFrameQueueSize = 32;
   /**
-   * 同步队列增长步长
+   * 解码缓冲队列最小大小
    */
-  size_t RenderQueueSizeGrowStep = 256;
+  size_t MinRenderQueueSize = 4;
+  /**
+   * 解码缓冲队列最大大小
+   */
+  size_t MaxRenderQueueSize = 8;
+  /**
+   * 解码缓冲队列增长步长
+   */
+  size_t RenderQueueSizeGrowStep = 32;
   /**
    * 包队列初始大小
    */

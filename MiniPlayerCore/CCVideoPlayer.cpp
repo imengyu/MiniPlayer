@@ -228,20 +228,21 @@ bool CCVideoPlayer::SetVideoPos(int64_t pos) {
     avcodec_flush_buffers(videoCodecContext);//清空缓存数据
   }
 
-  if(audioIndex != -1) {
-      seekPosAudio = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[audioIndex]->time_base);
-      ret = av_seek_frame(formatContext, audioIndex, seekPosAudio, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY);
-      if (ret != 0)
-          LOGEF("av_seek_frame audio failed : %s", GetAvError(ret).c_str());
-      else
-          avcodec_flush_buffers(audioCodecContext);//清空缓存数据
+  else if(audioIndex != -1) {
+    seekPosAudio = av_rescale_q(seekDest * 1000, av_get_time_base_q(), formatContext->streams[audioIndex]->time_base);
+    ret = av_seek_frame(formatContext, audioIndex, seekPosAudio, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY);
+    if (ret != 0)
+      LOGEF("av_seek_frame audio failed : %s", GetAvError(ret).c_str());
+    else
+      avcodec_flush_buffers(audioCodecContext);//清空缓存数据
   }
 
   //清空队列中所有残留数据
   decodeQueue.ClearAll();
 
+
   decoderAudioFinish = audioIndex == -1;
-  decoderVideoFinish = false;
+  decoderVideoFinish = videoIndex == -1;
 
   if (videoState == CCVideoState::Playing) {
     //启动线程
@@ -871,17 +872,16 @@ void* CCVideoPlayer::DecoderWorkerThread() {
 
   while (decodeState == CCDecodeState::Decoding) {
 
-    bool queueFull = false;
-    auto maxMaxRenderQueueSize = InitParams.MaxRenderQueueSize;
-
-    if (videoIndex == -1)
-      queueFull = decodeQueue.AudioQueueSize() >= maxMaxRenderQueueSize;
-    else 
-      queueFull = decodeQueue.VideoQueueSize() >= maxMaxRenderQueueSize;
-
-    if (queueFull) {
-      av_usleep(10000);
-      continue;
+    //判断队列有没有满，如果满了，则延时不解码，节省CPU和队列空间
+    //由于音频解码比视频快，为了防止音频包堆积，先判断音频队列是否已满，已满再判断视频包有没有满
+    if ((audioIndex == -1 || decodeQueue.AudioQueueNotNeedFill())) {
+      if (decodeQueue.VideoQueueNotNeedFill()) {
+        av_usleep(10000);
+        continue;
+      }
+      else {
+        av_usleep(2000);
+      }
     }
     else if (start <= 0) {
       av_usleep(100); //目的是在刚开始时不延时，全速解码保证可以最快显示

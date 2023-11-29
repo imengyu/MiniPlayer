@@ -142,7 +142,7 @@ void CCPlayerRender::Stop() {
       renderVideoThreadDone.Wait();
     }
 
-    audioDevice->Stop();
+    audioDevice->Destroy();
     videoDevice->Pause();
   }
 }
@@ -150,6 +150,7 @@ void CCPlayerRender::Start() {
 
   status = CCRenderState::Rendering;
 
+  audioDevice->Create();
   audioDevice->Start();
   audioDevice->SetVolume(-1, currentVolume / 100.0f);
 
@@ -293,7 +294,7 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
   double delays = extra_delay + frame_delays;
   
   //与音频同步
-  if (externalData->AudioCodecContext != nullptr && externalData->InitParams->SyncVideoAndAudio) {
+  if (externalData->AudioCodecContext != nullptr && externalData->InitParams->SyncVideoAndAudio && dropCount < 16) {
     //音频与视频的时间差
     double diff = fabs(currentVideoClock - currentAudioClock);
     LOGDF("Sync: diff: %f, v/a %f/%f", diff, currentVideoClock, currentAudioClock);
@@ -304,16 +305,19 @@ bool CCPlayerRender::RenderVideoThreadWorker(bool sync) {
       else {
         av_usleep((uint32_t)((delays + diff) * 1000000));
       }
+      dropCount--;
     }
     else {
       if (diff >= 0.55) {
         externalData->DecodeQueue->ReleaseFrame(currentFrame);
         currentFrame = nullptr;
         int count = externalData->DecodeQueue->VideoDrop(currentAudioClock);
+        dropCount += dropCount;
         LOGDF("Sync: drop video pack: %d", count);
         return false;
       }
       else {
+        dropCount--;
         av_usleep((uint32_t)1000);
       }
     }
