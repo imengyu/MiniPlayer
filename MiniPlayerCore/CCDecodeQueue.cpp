@@ -9,8 +9,9 @@
 #include "Logger.h"
 
 #define MAX_INCREASE_VIDEO_QUEUE_SIZE 128
-#define MAX_INCREASE_AUIDO_QUEUE_SIZE 256
+#define MAX_INCREASE_AUIDO_QUEUE_SIZE 1024
 #define MAX_ALLOCATE_FRAME 1024
+#define MAX_ALLOCATE_PACKET 2048
 
 void CCDecodeQueue::Init(CCVideoPlayerExternalData* data) {
 
@@ -276,7 +277,7 @@ void CCDecodeQueue::AllocPacketPool(int size) {
       LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
       break;
     }
-    Assert(allocedPacket < MAX_ALLOCATE_FRAME);
+    Assert(allocedPacket < MAX_ALLOCATE_PACKET);
   }
 }
 void CCDecodeQueue::ClearPacketPool() {
