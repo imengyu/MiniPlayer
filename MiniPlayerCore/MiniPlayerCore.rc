@@ -67,11 +67,11 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "mengyu"
-            VALUE "FileDescription", "Player core"
+            VALUE "CompanyName", "快乐的梦鱼"
+            VALUE "FileDescription", "Sound player core"
             VALUE "FileVersion", "1.0.0.1"
             VALUE "InternalName", "MiniPlay.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2023 Baidu.com"
+            VALUE "LegalCopyright", "Copyright (C) 2023 快乐的梦鱼 imengyu.top"
             VALUE "OriginalFilename", "MiniPlay.dll"
             VALUE "ProductName", "iPlayer"
             VALUE "ProductVersion", "1.0.0.1"
