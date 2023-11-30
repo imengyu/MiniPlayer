@@ -268,7 +268,7 @@ void CSoundDevice::Destroy()
   if (!threadLock.try_lock()) {
     ResetEvent(hEventDestroyDone);
     SetEvent(hEventDestroy);
-    WaitForSingleObject(hEventDestroyDone, INFINITE);
+    WaitForSingleObject(hEventDestroyDone, 1000);
   }
   else
     threadLock.unlock();
@@ -632,9 +632,9 @@ EXIT:
   if (device->parent)
     device->parent->NotifyPlayEnd(hasError);
 
-  SetEvent(device->hEventDestroyDone);
-
   device->threadLock.unlock();
+
+  SetEvent(device->hEventDestroyDone);
 
   LOGD("CSoundDevice PlayerThread Exit");
 }
