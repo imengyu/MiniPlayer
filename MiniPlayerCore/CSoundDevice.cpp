@@ -258,10 +258,12 @@ bool CSoundDevice::Create()
   std::thread playerThread(PlayerThread, this);
   playerThread.detach();
 
-  WaitForSingleObject(hEventCreateDone, INFINITE);
+  if (WaitForSingleObject(hEventCreateDone, 2000) == WAIT_TIMEOUT) {
+    parent->SetLastError(PLAYER_ERROR_DECODER_ERROR, L"Dead lock!");
+    return false;
+  }
   ResetEvent(hEventCreateDone);
 
-  return createSuccess;
 }
 void CSoundDevice::Destroy()
 {
@@ -335,6 +337,9 @@ void CSoundDevice::PlayerThread(void* p)
   LOGD("CSoundDevice PlayerThread Start");
 
   auto device = (CSoundDevice*)p;
+
+  device->threadLock.lock();
+
   HRESULT hr;
   REFERENCE_TIME hnsActualDuration;
   IMMDeviceEnumerator* pEnumerator = NULL;
@@ -353,9 +358,6 @@ void CSoundDevice::PlayerThread(void* p)
   bool hasError = false;
   bool reCreateDevice = false;
   bool rePlayAfterCreateDevice = false;
-
-  device->threadLock.lock();
-
   //线程等待多个消息，根据消息执行不同的任务
   int waitMessagesResult = -1;
   HANDLE waitMessages[8] = {
