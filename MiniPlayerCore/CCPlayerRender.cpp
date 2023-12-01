@@ -150,9 +150,9 @@ void CCPlayerRender::Start() {
 
   status = CCRenderState::Rendering;
 
+  audioDevice->SetVolume(-1, currentVolume / 100.0f);
   audioDevice->Create();
   audioDevice->Start();
-  audioDevice->SetVolume(-1, currentVolume / 100.0f);
 
   videoDevice->Reusme();
 
@@ -434,7 +434,7 @@ bool CCPlayerRender::RenderAudioBufferData(LPVOID buf, DWORD buf_len, DWORD samp
     if (frame == nullptr) {
       memset(buf, 0, buf_len);
       //LOGDF("No audio frame, idle");
-      return false;
+      return true;
     }
 
     //时钟

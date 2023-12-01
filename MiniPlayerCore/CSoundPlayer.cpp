@@ -275,6 +275,8 @@ void CSoundPlayerImpl::PostWorkerCommandFinish(CCAsyncTask* task) {
 
 void CSoundPlayerImpl::WorkerThread(CSoundPlayerImpl* self) {
 
+	SetThreadDescription(GetCurrentThread(), L"CSoundPlayer WorkerThread");
+
 	while (self->workerThreadEnable) {
 
 		auto task = (CSoundPlayerAsyncTask*)(self->workerQueue.Pop());

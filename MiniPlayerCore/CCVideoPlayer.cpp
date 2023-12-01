@@ -720,16 +720,19 @@ void CCVideoPlayer::StopDecoderThread() {
 //线程入口包装函数
 
 void* CCVideoPlayer::DecoderWorkerThreadStub(void* param) {
+  SetThreadDescription(GetCurrentThread(), L"CCVideoPlayer DecoderWorkerThread");
   void* result = ((CCVideoPlayer*)param)->DecoderWorkerThread();
   ((CCVideoPlayer*)param)->decoderWorkerThread = 0;
   return result;
 }
 void* CCVideoPlayer::DecoderVideoThreadStub(void* param) {
+  SetThreadDescription(GetCurrentThread(), L"CCVideoPlayer DecoderVideoThread");
   void* result = ((CCVideoPlayer*)param)->DecoderVideoThread();
   ((CCVideoPlayer*)param)->decoderVideoThread = 0;
   return result;
 }
 void* CCVideoPlayer::DecoderAudioThreadStub(void* param) {
+  SetThreadDescription(GetCurrentThread(), L"CCVideoPlayer DecoderAudioThread");
   void* result = ((CCVideoPlayer*)param)->DecoderAudioThread();
   ((CCVideoPlayer*)param)->decoderAudioThread = 0;
   return result;
@@ -776,6 +779,8 @@ void CCVideoPlayer::PostWorkerCommandFinish(CCAsyncTask* task) {
 }
 
 void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
+
+  SetThreadDescription(GetCurrentThread(), L"CCVideoPlayer WorkerThread");
 
   while (self->workerThreadEnable) {
 
@@ -869,18 +874,26 @@ void* CCVideoPlayer::DecoderWorkerThread() {
     return nullptr;
   }
 
-
   while (decodeState == CCDecodeState::Decoding) {
 
     //判断队列有没有满，如果满了，则延时不解码，节省CPU和队列空间
-    //由于音频解码比视频快，为了防止音频包堆积，先判断音频队列是否已满，已满再判断视频包有没有满
-    if ((audioIndex == -1 || decodeQueue.AudioQueueNotNeedFill())) {
+    //由于音频解码比视频快，为了防止音频包堆积，先判断音频队列是否已满，已满再判断视频包有没有满  
+    if (videoIndex != -1) { 
       if (decodeQueue.VideoQueueNotNeedFill()) {
         av_usleep(10000);
         continue;
       }
       else {
-        av_usleep(2000);
+        av_usleep(1000);
+      }
+    }
+    else if (audioIndex != -1) {
+      if (decodeQueue.AudioQueueNotNeedFill()) {
+        av_usleep(10000);
+        continue;
+      }
+      else {
+        av_usleep(5000);
       }
     }
     else if (start <= 0) {

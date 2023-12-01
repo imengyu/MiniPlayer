@@ -264,6 +264,7 @@ bool CSoundDevice::Create()
   }
   ResetEvent(hEventCreateDone);
 
+  return true;
 }
 void CSoundDevice::Destroy()
 {
@@ -336,6 +337,8 @@ void CSoundDevice::PlayerThread(void* p)
 {
   LOGD("CSoundDevice PlayerThread Start");
 
+  SetThreadDescription(GetCurrentThread(), L"CSoundDevice PlayerThread");
+
   auto device = (CSoundDevice*)p;
 
   device->threadLock.lock();
@@ -380,7 +383,6 @@ void CSoundDevice::PlayerThread(void* p)
   EXIT_ON_ERROR(hr);
 
 RECREATE:
-  SetEvent(device->hEventVolumeUpdate);
 
   defaultDeviceId = device->parent->GetDefaultOutputDeviceId();
   if (defaultDeviceId && wcscmp(defaultDeviceId, L"") != 0)
@@ -472,6 +474,11 @@ RESET:
     pAudioClient->Start();
     device->isStarted = true;
   }
+
+  //初始设置音量
+  hr = pAudioStreamVolume->GetChannelCount(&channelCount);
+  if (SUCCEEDED(hr))
+    pAudioStreamVolume->SetAllVolumes(channelCount, device->currentVolume);
 
   //循环
   while (device->GetThreadStatus())
