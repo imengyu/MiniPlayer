@@ -451,14 +451,15 @@ const char* CSoundPlayerImpl::GetLastErrorMessageUtf8() {
 
 void CSoundPlayerImpl::SetVolume(float volume, int index)
 {
-	if (outputer)
-		outputer->SetVolume(index, volume);
+	Assert(outputer);
+		
+	outputer->SetVolume(index, volume);
 }
 float CSoundPlayerImpl::GetVolume(int index)
 {
-	if (outputer)
-		return outputer->GetVolume(index);
-	return 0.0f;
+	Assert(outputer);
+
+	return outputer->GetVolume(index);
 }
 
 TPlayerStatus CSoundPlayerImpl::GetState()

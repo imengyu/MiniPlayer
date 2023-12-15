@@ -73,11 +73,12 @@ float CSoundDevice::GetVolume(int index)
 void CSoundDevice::SetVolume(int index, float value)
 {
   if (index == -1) {
-    for (size_t i = 0; i < sizeof(currentVolume) / sizeof(float); i++)
+    for (size_t i = 0; i < (sizeof(currentVolume) / sizeof(float)); i++)
       currentVolume[i] = value;
   }
   else
     currentVolume[index] = value;
+
   SetEvent(hEventVolumeUpdate);
 }
 
