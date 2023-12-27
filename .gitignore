@@ -10,5 +10,10 @@
 obj/
 *.ipdb
 *.iobj
+*.recipe
 /Debug
 /Release
+MiniPlayer/Debug
+MiniPlayer/Release
+MiniPlayerCore/Debug
+MiniPlayerCore/Release
