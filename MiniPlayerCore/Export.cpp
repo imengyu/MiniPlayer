@@ -248,7 +248,7 @@ CM_API_RESULT* ReportCmAvFailure(const char* errMessage, int ret) {
 	return ReportCmFailure(error);
 }
 
-CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels) {
+CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels, double sacle_to_second, double sacle_start_space) {
 	AVFormatContext* output_ctx = nullptr;
 	AVCodecContext* codec_ctx = nullptr;
 	const AVCodec* codec = nullptr;
@@ -343,13 +343,24 @@ CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, 
 		return ReportCmFailure("Could not allocate packet");
 
 	int64_t pts = 0;
-	int pcmPos = 0;
-	while (pcmPos < pcm_count)
+	int64_t pcmPos = 0, pcmCount = pcm_count, pcmStartPos = 0;
+	if (sacle_to_second > 0) {
+		pcmCount = (int64_t)(sacle_to_second * (double)sample_rate * (double)nb_channels);
+		pcmStartPos = (int64_t)(sacle_start_space * (double)sample_rate * (double)nb_channels);
+	}
+
+	while (pcmPos < pcmCount)
 	{
+		//¿½±´Êý¾ÝÖÁframe
 		for (size_t i = 0; i < nb_channels * nb_samples; i++) {
-			pcmPos++;
-			if (pcmPos < pcm_count)
-				((int16_t*)frame_data[0])[i] = static_cast<int16_t>(pcm_data[pcmPos] * INT16_MAX);
+			if (pcmStartPos > 0) {
+				pcmStartPos--;
+				((int16_t*)frame_data[0])[i] = 0;
+			}
+			else {
+				pcmPos++;
+				((int16_t*)frame_data[0])[i] = static_cast<int16_t>(pcmPos < pcm_count ? pcm_data[pcmPos] * INT16_MAX : 0);
+			}
 		}
 
 		frame->pts = pts;

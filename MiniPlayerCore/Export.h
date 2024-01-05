@@ -4,9 +4,10 @@
 
 #include "CSoundPlayer.h"
 #include "CCVideoPlayer.h"
-#define MINI_PLAYER_EXPORT __declspec(dllexport)
+#include "ExportDefine.h"
 
 #else
+#define MINI_PLAYER_EXPORT __declspec(dllimport)
 
 #include "CSoundPlayerExport.h"
 #include "CCVideoPlayerExport.h"
@@ -199,8 +200,10 @@ extern "C" MINI_PLAYER_EXPORT void DeletePlayerMemory(void* ptr);
 //   * pcm_count ：数据长度
 //   * sample_rate ：采样率
 //   * channels ：声音通道数
+//   * sacle_to_second : 重新调整大小
+//   * sacle_start_space : 插入前置空白大小
 // 
 // * 返回：
 //   操作是否成功以及返回值
 //
-extern "C" MINI_PLAYER_EXPORT CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels);
+extern "C" MINI_PLAYER_EXPORT CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels, double sacle_to_second, double sacle_start_space);
