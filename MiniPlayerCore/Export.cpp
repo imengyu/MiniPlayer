@@ -228,6 +228,177 @@ void DeleteAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** ptr)
 	CSoundDevice::DeleteAllAudioOutDeviceInfo(ptr);
 }
 
+CM_API_RESULT* ReportCmSuccess(void* data) {
+	auto result = new CM_API_RESULT();
+	result->Success = true;
+	result->Result = data;
+	return result;
+}
+CM_API_RESULT* ReportCmFailure(const char* errMessage) {
+	auto result = new CM_API_RESULT();
+	result->Success = false;
+	strcpy_s(result->ErrorMessage, errMessage);
+	return result;
+}
+CM_API_RESULT* ReportCmAvFailure(const char* errMessage, int ret) {
+	char error[64];
+	char averror[32];
+	av_make_error_string(averror, sizeof(averror), ret);
+	sprintf_s(error, errMessage, averror);
+	return ReportCmFailure(error);
+}
+
+CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels) {
+	AVFormatContext* output_ctx = nullptr;
+	AVCodecContext* codec_ctx = nullptr;
+	const AVCodec* codec = nullptr;
+	AVFrame* frame = nullptr;
+	int ret;
+
+	// 创建输出WAV文件上下文
+	if ((ret = avformat_alloc_output_context2(&output_ctx, nullptr, nullptr, output_file)) < 0)
+		return ReportCmAvFailure("Could not create output context: %s", ret);
+
+	// 查找输出格式
+	const AVOutputFormat* output_format = output_ctx->oformat;
+
+	// 设置音频流信息
+	AVStream* stream = avformat_new_stream(output_ctx, nullptr);
+	if (!stream)
+		return ReportCmFailure("Could not create stream");
+
+	AVCodecParameters* codec_params = stream->codecpar;
+	codec_params->codec_type = AVMEDIA_TYPE_AUDIO;
+	codec_params->codec_id = output_format->audio_codec;
+
+	const int nb_channels = channels;
+	const int nb_samples = 1;
+
+	AVChannelLayout dst_ch_layout;
+	dst_ch_layout.nb_channels = nb_channels;
+	dst_ch_layout.order = AV_CHANNEL_ORDER_NATIVE;
+	dst_ch_layout.u.mask = nb_channels == 1 ? AV_CH_LAYOUT_MONO : AV_CH_LAYOUT_STEREO;
+
+	codec_params->ch_layout = dst_ch_layout;  // 设置声道布局
+	codec_params->sample_rate = sample_rate;  // 设置采样率
+	codec_params->format = AV_SAMPLE_FMT_S16;  // 设置采样格式
+
+	// 查找编码器
+	codec = avcodec_find_encoder(codec_params->codec_id);
+	if (!codec)
+		return ReportCmFailure("Could not find encoder");
+
+	// 创建编码器上下文
+	codec_ctx = avcodec_alloc_context3(codec);
+	if (!codec_ctx)
+		return ReportCmAvFailure("Could not allocate codec context: %s", ret);
+
+	codec_ctx->time_base = av_get_time_base_q();
+
+	// 设置编码器上下文参数
+	if ((ret = avcodec_parameters_to_context(codec_ctx, codec_params)) < 0)
+		return ReportCmAvFailure("Could not set codec parameters: %s", ret);
+
+	// 打开编码器
+	if ((ret = avcodec_open2(codec_ctx, codec, nullptr)) < 0) 
+		return ReportCmAvFailure("Could not open codec:  %s", ret);
+
+	// 打开输出文件
+	if (!(output_format->flags & AVFMT_NOFILE)) {
+		if ((ret = avio_open(&output_ctx->pb, output_file, AVIO_FLAG_WRITE)) < 0) 
+			return ReportCmAvFailure("Could not open output file: %s", ret);
+	}
+
+	// 写文件头部信息
+	if ((ret = avformat_write_header(output_ctx, nullptr)) < 0)
+		return ReportCmAvFailure("Error writing file header: %s", ret);
+
+	// 分配帧内存
+	frame = av_frame_alloc();
+	if (!frame)
+		return ReportCmFailure("Could not allocate frame");
+
+	// 设置帧的格式和采样率
+	frame->format = codec_ctx->sample_fmt;
+	frame->sample_rate = codec_ctx->sample_rate;
+	frame->ch_layout = dst_ch_layout;
+
+	// 设置帧数据大小
+	frame->nb_samples = nb_samples;
+	int frame_size = av_samples_get_buffer_size(nullptr, nb_channels, nb_samples, codec_ctx->sample_fmt, 0);
+	uint8_t** frame_data = NULL;
+	int input_linesize;
+
+	ret = av_frame_get_buffer(frame, 0);
+	if (ret < 0)
+		return ReportCmAvFailure("Could not allocate frame buffer: %s", ret);
+
+	// 给pcm文件数据分配空间
+	ret = av_samples_alloc_array_and_samples(&frame_data, &input_linesize, nb_channels, nb_samples, codec_ctx->sample_fmt, 0);
+	if (ret < 0)
+		return ReportCmAvFailure("Could not allocate sample buffer: %s", ret);
+
+	AVPacket* avPacket = av_packet_alloc();
+	if (!avPacket)
+		return ReportCmFailure("Could not allocate packet");
+
+	int64_t pts = 0;
+	int pcmPos = 0;
+	while (pcmPos < pcm_count)
+	{
+		for (size_t i = 0; i < nb_channels * nb_samples; i++) {
+			pcmPos++;
+			if (pcmPos < pcm_count)
+				((int16_t*)frame_data[0])[i] = static_cast<int16_t>(pcm_data[pcmPos] * INT16_MAX);
+		}
+
+		frame->pts = pts;
+		avPacket->pts = pts;
+
+		// 计算PTS
+		double frame_duration = (double)nb_samples / sample_rate;
+		int64_t frame_pts = (int64_t)(frame_duration * AV_TIME_BASE);
+		pts += frame_pts;
+
+		frame->data[0] = frame_data[0];
+
+		// 编码帧
+		ret = avcodec_send_frame(codec_ctx, frame);
+		if (ret < 0)
+			return ReportCmAvFailure("Error sending frame for encoding: %s", ret);
+
+		while (ret >= 0) {
+			// 接收编码后的数据包
+			ret = avcodec_receive_packet(codec_ctx, avPacket);
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+				break;
+			else if (ret < 0)
+				return ReportCmAvFailure("Error during encoding: %s", ret);
+
+			// 将数据包写入输出文件
+			ret = av_interleaved_write_frame(output_ctx, avPacket);
+			if (ret < 0)
+				return ReportCmAvFailure("Error writing packet to file: %s", ret);
+
+			// 释放数据包
+			av_packet_unref(avPacket);
+		}
+	}
+
+
+	// 写文件尾部信息
+	av_write_trailer(output_ctx);
+
+	// 清理资源
+	av_frame_free(&frame);
+	av_packet_free(&avPacket);
+	avcodec_free_context(&codec_ctx);
+	avformat_close_input(&output_ctx);
+	avformat_free_context(output_ctx);
+
+	return ReportCmSuccess(nullptr);
+}
+
 #pragma endregion
 
 #pragma region Video utils

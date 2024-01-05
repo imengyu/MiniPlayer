@@ -1,1 +1,2 @@
 D:\Code\GitHub\IPlayer-master\PlayerDecorders\libvorbis\Release\libvorbis.lib
+D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\libvorbis\Release\libvorbis.lib

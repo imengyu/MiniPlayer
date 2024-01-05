@@ -146,6 +146,12 @@ struct READ_VIDEO_INFO {
   bool isAudio;
 };
 
+struct CM_API_RESULT {
+  void* Result;
+  char ErrorMessage[64];
+  bool Success;
+};
+
 //
 // * 说明：
 //   释放视频格式信息结构体
@@ -181,3 +187,20 @@ extern "C" MINI_PLAYER_EXPORT READ_VIDEO_INFO * GetVideoInfo(const wchar_t* pchF
 //   无
 //
 extern "C" MINI_PLAYER_EXPORT void DeletePlayerMemory(void* ptr);
+
+
+//
+// * 说明：
+//   浮点数组的PCM数据转码为wav文件
+//
+// * 参数：
+//   * output_file ：生成文件路径
+//   * pcm_data ：数据
+//   * pcm_count ：数据长度
+//   * sample_rate ：采样率
+//   * channels ：声音通道数
+// 
+// * 返回：
+//   操作是否成功以及返回值
+//
+extern "C" MINI_PLAYER_EXPORT CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, long pcm_count, int sample_rate, int channels);

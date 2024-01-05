@@ -5,6 +5,11 @@
 #include <Shlobj.h>  
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include <vector>
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+}
 
 class PlayVideoData {
 public:
@@ -67,7 +72,7 @@ void DoPlayVideo(wchar_t* strFilename, READ_VIDEO_INFO*info) {
 	PlayVideoData playData;
 	CCVideoPlayerInitParams params;
 	uint32_t _FPS_Timer = 0;
-	const uint32_t FPS = 1000 / (info->frameRate > 0 ? info->frameRate : 1);
+	const uint32_t FPS = (uint32_t)(1000.0 / (info->frameRate > 0 ? info->frameRate : 1));
 
 	params.DestFormat = 0;//AV_PIX_FMT_YUV420P
 	params.DestWidth = 408;
@@ -290,5 +295,209 @@ int RunPlayer(const char* path) {
 	else {
 		DoReadVideo(strFilename);
 	}
+	return 0;
+}
+
+int TestPCMToWav() {
+	std::vector<float> array;
+
+	FILE* fp = NULL;
+	char str[32];
+	_wfopen_s(&fp, L"D:\\Code\\GitHub\\ConsoleApplication1\\x64\\Debug\\1(1).txt", L"r");
+	if (fp) {
+		while (!feof(fp))
+		{
+			if (fgets(str, 32, fp) != NULL)
+				array.push_back((float)atof(str));
+		}
+		fclose(fp);
+	}
+
+	AVFormatContext* output_ctx = nullptr;
+	AVCodecContext* codec_ctx = nullptr;
+	const AVCodec* codec = nullptr;
+	AVFrame* frame = nullptr;
+	int ret;
+
+	const char* output_file = "D:\\Code\\GitHub\\ConsoleApplication1\\x64\\Debug\\output.wav";
+
+	// 创建输出WAV文件上下文
+	if ((ret = avformat_alloc_output_context2(&output_ctx, nullptr, nullptr, output_file)) < 0) {
+		printf("Could not create output context: %d", ret);
+		return ret;
+	}
+
+	// 查找输出格式
+	const AVOutputFormat* output_format = output_ctx->oformat;
+
+	// 设置音频流信息
+	AVStream* stream = avformat_new_stream(output_ctx, nullptr);
+	if (!stream) {
+		printf("Could not create stream");
+		return AVERROR_UNKNOWN;
+	}
+
+	AVCodecParameters* codec_params = stream->codecpar;
+	codec_params->codec_type = AVMEDIA_TYPE_AUDIO;
+	codec_params->codec_id = output_format->audio_codec;
+
+	const int nb_channels = 1;
+	const int nb_samples = 1;
+	const int sample_rate = 44100;
+
+	AVChannelLayout dst_ch_layout;
+	dst_ch_layout.nb_channels = nb_channels;
+	dst_ch_layout.order = AV_CHANNEL_ORDER_NATIVE;
+	dst_ch_layout.u.mask = nb_channels == 1 ? AV_CH_LAYOUT_MONO : AV_CH_LAYOUT_STEREO;
+
+	codec_params->ch_layout = dst_ch_layout;  // 设置声道布局
+	codec_params->sample_rate = sample_rate;  // 设置采样率
+	codec_params->format = AV_SAMPLE_FMT_S16;  // 设置采样格式
+
+	// 查找编码器
+	codec = avcodec_find_encoder(codec_params->codec_id);
+	if (!codec) {
+		printf("Could not find encoder");
+		return AVERROR_INVALIDDATA;
+	}
+
+	// 创建编码器上下文
+	codec_ctx = avcodec_alloc_context3(codec);
+	if (!codec_ctx) {
+		printf("Could not allocate codec context: %d", ret);
+		return AVERROR(ENOMEM);
+	}
+
+	codec_ctx->time_base = av_get_time_base_q();
+
+	// 设置编码器上下文参数
+	if ((ret = avcodec_parameters_to_context(codec_ctx, codec_params)) < 0) {
+		printf("Could not set codec parameters:  %d", ret);
+		return ret;
+	}
+
+	// 打开编码器
+	if ((ret = avcodec_open2(codec_ctx, codec, nullptr)) < 0) {
+		printf("Could not open codec:  %d", ret);
+		return ret;
+	}
+
+	// 打开输出文件
+	if (!(output_format->flags & AVFMT_NOFILE)) {
+		if ((ret = avio_open(&output_ctx->pb, output_file, AVIO_FLAG_WRITE)) < 0) {
+			printf("Could not open output file: %d", ret);
+			return ret;
+		}
+	}
+
+	// 写文件头部信息
+	if ((ret = avformat_write_header(output_ctx, nullptr)) < 0) {
+		printf("Error writing file header:  %d", ret);
+		return ret;
+	}
+
+	// 分配帧内存
+	frame = av_frame_alloc();
+	if (!frame) {
+		printf("Could not allocate frame");
+		return AVERROR(ENOMEM);
+	}
+
+	// 设置帧的格式和采样率
+	frame->format = codec_ctx->sample_fmt;
+	frame->sample_rate = codec_ctx->sample_rate;
+	frame->ch_layout = dst_ch_layout;
+
+	// 设置帧数据大小
+	frame->nb_samples = nb_samples;
+	int frame_size = av_samples_get_buffer_size(nullptr, nb_channels, nb_samples, codec_ctx->sample_fmt, 0);
+	uint8_t** frame_data = NULL;
+	int input_linesize;
+
+	ret = av_frame_get_buffer(frame, 0);
+	if (ret < 0)
+	{
+		printf("Could not allocate frame");
+		return ret;
+	}
+
+	// 给pcm文件数据分配空间
+	ret = av_samples_alloc_array_and_samples(&frame_data, &input_linesize, nb_channels, nb_samples, codec_ctx->sample_fmt, 0);
+	if (ret < 0)
+	{
+		printf("Could not allocate frame");
+		return ret;
+	}
+	
+	AVPacket* avPacket = av_packet_alloc();
+	if (!avPacket)
+	{
+		printf("Could not allocate packet");
+		return -1;
+	}
+
+	int64_t pts = 0;
+	int pcmPos = 0, pcmCount = array.size();
+	while (pcmPos < pcmCount)
+	{
+		for (size_t i = 0; i < nb_channels * nb_samples; i++) {
+			pcmPos++;
+			if (pcmPos < pcmCount)
+				((int16_t*)frame_data[0])[i] = static_cast<int16_t>(array[pcmPos] * INT16_MAX);
+		}
+
+		frame->pts = pts;
+		avPacket->pts = pts;
+
+		// 计算PTS
+		double frame_duration = (double)nb_samples / sample_rate;
+		int64_t frame_pts = (int64_t)(frame_duration * AV_TIME_BASE);
+		pts += frame_pts;
+
+		frame->data[0] = frame_data[0];
+
+		// 编码帧
+		ret = avcodec_send_frame(codec_ctx, frame);
+		if (ret < 0) {
+			char err[32];
+			av_make_error_string(err, sizeof(err), ret);
+			printf("Error sending frame for encoding:  %s", err);
+			return ret;
+		}
+
+		while (ret >= 0) {
+			// 接收编码后的数据包
+			ret = avcodec_receive_packet(codec_ctx, avPacket);
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+				break;
+			}
+			else if (ret < 0) {
+				printf("Error during encoding:  %d", ret);
+				return ret;
+			}
+
+			// 将数据包写入输出文件
+			ret = av_interleaved_write_frame(output_ctx, avPacket);
+			if (ret < 0) {
+				printf("Error writing packet to file: %d", ret);
+				return ret;
+			}
+
+			// 释放数据包
+			av_packet_unref(avPacket);
+		}
+	}
+
+
+	// 写文件尾部信息
+	av_write_trailer(output_ctx);
+
+	// 清理资源
+	av_frame_free(&frame);
+	av_packet_free(&avPacket);
+	avcodec_free_context(&codec_ctx);
+	avformat_close_input(&output_ctx);
+	avformat_free_context(output_ctx);
+
 	return 0;
 }
