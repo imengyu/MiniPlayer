@@ -135,12 +135,20 @@ struct READ_VIDEO_INFO {
   int width;
   //当前视频的高度
   int height;
+  //文件大小
+  int64_t size;
   //当前视频的帧率
   double frameRate;
   //当前视频的帧率
   double avgFrameRate;
+  //当前视频的比特率
+  double bitRate;
   //当前主音频的采样率
   double simpleRate;
+  //当前主音频的采样率
+  int bitsPreSample;
+  //当前主音频的通道数量
+  int channels;
   //指示是否是视频
   bool isVideo;
   //指示是否是音频

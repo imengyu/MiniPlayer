@@ -428,6 +428,7 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 	auto ansiPath = StringHelper::UnicodeToUtf8(pchFileName);
 	AVStream* videoStream;
 	AVStream* audioStream;
+	FILE* fileStream = nullptr;
 
 	//打开视频数据源
 	int openState = avformat_open_input(&formatContext, ansiPath.c_str(), nullptr, nullptr);
@@ -470,6 +471,9 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 
 		audioStream = formatContext->streams[audioIndex];
 		result->simpleRate = (double)audioStream->r_frame_rate.num / audioStream->r_frame_rate.den;
+		result->channels = audioStream->codecpar->ch_layout.nb_channels;
+		result->bitRate = (double)audioStream->codecpar->bit_rate;
+		result->bitsPreSample = audioStream->codecpar->bits_per_raw_sample;
 		result->isAudio = true;
 	}
 	
@@ -477,9 +481,20 @@ READ_VIDEO_INFO* GetVideoInfo(const wchar_t* pchFileName) {
 	sprintf_s(result->format, "%s %s", formatContext->iformat->name, formatContext->iformat->long_name);
 	result->success = true;
 
+
 EXIT:
+
 	avformat_close_input(&formatContext);
 	avformat_free_context(formatContext);
+
+
+	//获取文件大小
+	_wfopen_s(&fileStream, pchFileName, L"w");
+	if (fileStream) {
+		fseek(fileStream, 0, SEEK_END);
+		result->size = (int64_t)ftell(fileStream);
+		fclose(fileStream);
+	}
 
 	return result;
 }
