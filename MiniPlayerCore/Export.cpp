@@ -489,7 +489,7 @@ EXIT:
 
 
 	//获取文件大小
-	_wfopen_s(&fileStream, pchFileName, L"w");
+	_wfopen_s(&fileStream, pchFileName, L"r");
 	if (fileStream) {
 		fseek(fileStream, 0, SEEK_END);
 		result->size = (int64_t)ftell(fileStream);
