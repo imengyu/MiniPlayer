@@ -1,0 +1,1 @@
+D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\faac\libfaac\Debug\libfaac.lib

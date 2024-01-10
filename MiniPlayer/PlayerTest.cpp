@@ -303,7 +303,7 @@ int TestPCMToWav() {
 
 	FILE* fp = NULL;
 	char str[32];
-	_wfopen_s(&fp, L"D:\\Code\\GitHub\\ConsoleApplication1\\x64\\Debug\\1(1).txt", L"r");
+	_wfopen_s(&fp, L"C:\\Users\\Roger\\Desktop\\1.txt", L"r");
 	if (fp) {
 		while (!feof(fp))
 		{
@@ -319,7 +319,7 @@ int TestPCMToWav() {
 	AVFrame* frame = nullptr;
 	int ret;
 
-	const char* output_file = "D:\\Code\\GitHub\\ConsoleApplication1\\x64\\Debug\\output.wav";
+	const char* output_file = "C:\\Users\\Roger\\Desktop\\output.wav";
 
 	// 创建输出WAV文件上下文
 	if ((ret = avformat_alloc_output_context2(&output_ctx, nullptr, nullptr, output_file)) < 0) {
