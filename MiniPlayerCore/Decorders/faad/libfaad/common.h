@@ -318,11 +318,15 @@ char *strchr(), *strrchr();
     static INLINE int lrintf(float f)
     {
         int i;
+#ifdef X64
+        i = (int)f;
+#else
         __asm
         {
             fld   f
             fistp i
         }
+#endif
         return i;
     }
   #elif (defined(__i386__) && defined(__GNUC__) && \
