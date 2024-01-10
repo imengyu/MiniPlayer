@@ -5,7 +5,7 @@ class CAppendBuffer
 {
 public: 
   CAppendBuffer(void* source, size_t size);
-  CAppendBuffer(int size);
+  CAppendBuffer(size_t size);
   ~CAppendBuffer();
 
   void Empty();

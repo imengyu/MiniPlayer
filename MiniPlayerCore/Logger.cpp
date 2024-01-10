@@ -153,7 +153,7 @@ void LoggerImpl::LogOutputToStdHandle(LogLevel logLevel, const char* str, size_t
 			FOREGROUND_BLUE);
 		break;
 	}
-	WriteConsoleA(hOutput, str, len, NULL, NULL);
+	WriteConsoleA(hOutput, str, static_cast<int>(len), NULL, NULL);
 }
 
 void LoggerImpl::ResentNotCaputureLog()

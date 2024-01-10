@@ -157,7 +157,7 @@ int convert(NeAACDecHandle hAac, unsigned char** bufferAAC, size_t *buf_sizeAAC,
 	{
 		// printf("frame size %d\n", size);
 		//decode ADTS frame
-		pcm_data = (unsigned char*)NeAACDecDecode(hAac, &frame_info, frame, size);
+		pcm_data = (unsigned char*)NeAACDecDecode(hAac, &frame_info, frame, static_cast<unsigned long>(size));
 		if (frame_info.error > 0) {
 			OutputDebugStringA(NeAACDecGetErrorMessage(frame_info.error));
 			return -1;
@@ -241,10 +241,10 @@ DWORD CAacDecoder::SeekToSample(DWORD sp)
 
 size_t CAacDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
-	long offest = cur_sample * sample_rate*GetBitsPerSample() / 8;
-	long curmax = offest + _BufferSize;
+	size_t offest = cur_sample * sample_rate*GetBitsPerSample() / 8;
+	size_t curmax = offest + _BufferSize;
 	if (curmax > this->_BufferSize) {
-		long out = curmax - this->_BufferSize;
+		size_t out = curmax - this->_BufferSize;
 		memcpy_s(_Buffer, _BufferSize, _PCMBuffer + offest, out);
 		return out;
 	}

@@ -319,7 +319,7 @@ size_t CWmaDecoder::Read(void * _Buffer, size_t _BufferSize)
 			if (dwOffset < len)
 			{
 				if (bytes < (len - dwOffset))
-					copylen = bytes;
+					copylen = static_cast<DWORD>(bytes);
 				else
 					copylen = len - dwOffset;
 
@@ -332,7 +332,7 @@ size_t CWmaDecoder::Read(void * _Buffer, size_t _BufferSize)
 				else copysize = copylen;
 				memcpy_s((BYTE*)_Buffer + readedBytes, _BufferSize, pBuf + dwOffset, copysize);
 				bytes = copysize;
-				dwOffset += copysize;
+				dwOffset += static_cast<DWORD>(copysize);
 				readedBytes += copysize;
 			}
 

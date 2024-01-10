@@ -25,7 +25,7 @@ public:
     void Reset();
     void Destroy();
 
-    void AllocPacketPool(int size);
+    void AllocPacketPool(size_t size);
     void ReleasePacketPool();
     void ClearPacketPool();
     void ReleasePacket(AVPacket *pkt);
@@ -33,7 +33,7 @@ public:
 
     void ReleaseFramePool();
     void ClearFramePool();
-    void AllocFramePool(int size);
+    void AllocFramePool(size_t size);
     AVFrame *RequestFrame();
     void ReleaseFrame(AVFrame *frame);
 

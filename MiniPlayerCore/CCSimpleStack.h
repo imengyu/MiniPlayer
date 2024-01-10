@@ -7,15 +7,17 @@ class CCSimpleStack
 public:
 	CCSimpleStack() {
 	}
-	CCSimpleStack(int max_size) {
+	CCSimpleStack(size_t max_size) {
 		alloc(max_size);
 	}
 	~CCSimpleStack() {
 		release();
 	}
 
-	bool alloc(int max_size) {
+	bool alloc(size_t max_size) {
 		if (m_stack)
+			return false;
+		if (max_size > 1048576 * 64)
 			return false;
 		m_max_size = max_size;
 		m_stack = (T**)malloc(sizeof(T*) * max_size);
@@ -57,16 +59,16 @@ public:
 		memset(m_stack, 0, sizeof(T*) * m_max_size);
 		m_size = 0;
 	}
-	int size() { 
+	size_t size() {
 		return m_size; 
 	}
-	int capacity() {
+	size_t capacity() {
 		return m_max_size;
 	}
 	bool empty() {
 		return m_size == 0;
 	}
-	void increase(int size) {
+	void increase(size_t size) {
 		Assert(size > 0);
 
 		auto old_max_size = m_max_size;
@@ -79,7 +81,7 @@ public:
 	}
 
 private:
-	int m_size = 0;
-	int m_max_size = 0;
+	size_t m_size = 0;
+	size_t m_max_size = 0;
 	T** m_stack = nullptr;
 };

@@ -767,9 +767,9 @@ int CCVideoPlayer::PostWorkerThreadCommand(int command, void* data) {
   if (command == VIDEO_PLAYER_ASYNC_TASK_OPEN)
     task->Path = (const char*)data;
   if (command == VIDEO_PLAYER_ASYNC_TASK_SET_STATE)
-    task->State = (CCVideoState)(int)data;
+    task->State = (CCVideoState)(int)(size_t)data;
   if (command == VIDEO_PLAYER_ASYNC_TASK_SET_POS)
-    task->Pos = (int)data;
+    task->Pos = (int)(size_t)data;
   
   workerQueue.Push(task);
   return task->Id;
@@ -852,7 +852,6 @@ void CCVideoPlayer::WorkerThread(CCVideoPlayer* self) {
     Sleep(50);
   }
 
-EXIT:
   self->workerQueue.Clear();
   self->eventWorkerThreadQuit.NotifyOne();
 }

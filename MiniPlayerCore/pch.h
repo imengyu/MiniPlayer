@@ -10,6 +10,4 @@
 // 添加要在此处预编译的标头
 #include "framework.h"
 
-#define MINI_PLAYER_EXPORT __declspec(dllexport)
-
 #endif //PCH_H

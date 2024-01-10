@@ -1,5 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec
- * Copyright (C) 2004,2005,2006,2007  Josh Coalson
+ * Copyright (C) 2004-2009  Josh Coalson
+ * Copyright (C) 2011-2016  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,16 +30,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
-#include "../../stdafx.h"
+
 #include <stdlib.h> /* for malloc() */
 #include <string.h> /* for memcmp(), memcpy() */
 #include "FLAC/assert.h"
 #include "share/alloc.h"
-#include "include/private/ogg_helper.h"
-#include "include/protected/stream_encoder.h"
+#include "private/ogg_helper.h"
+#include "protected/stream_encoder.h"
 
 
 static FLAC__bool full_read_(FLAC__StreamEncoder *encoder, FLAC__byte *buffer, size_t bytes, FLAC__StreamEncoderReadCallback read_callback, void *client_data)
@@ -93,8 +94,8 @@ void simple_ogg_page__clear(ogg_page *page)
 
 FLAC__bool simple_ogg_page__get_at(FLAC__StreamEncoder *encoder, FLAC__uint64 position, ogg_page *page, FLAC__StreamEncoderSeekCallback seek_callback, FLAC__StreamEncoderReadCallback read_callback, void *client_data)
 {
-	static const unsigned OGG_HEADER_FIXED_PORTION_LEN = 27;
-	static const unsigned OGG_MAX_HEADER_LEN = 27/*OGG_HEADER_FIXED_PORTION_LEN*/ + 255;
+	static const uint32_t OGG_HEADER_FIXED_PORTION_LEN = 27;
+	static const uint32_t OGG_MAX_HEADER_LEN = 27/*OGG_HEADER_FIXED_PORTION_LEN*/ + 255;
 	FLAC__byte crc[4];
 	FLAC__StreamEncoderSeekStatus seek_status;
 
@@ -113,7 +114,7 @@ FLAC__bool simple_ogg_page__get_at(FLAC__StreamEncoder *encoder, FLAC__uint64 po
 	}
 
 	/* allocate space for the page header */
-	if(0 == (page->header = (unsigned char *)safe_malloc_(OGG_MAX_HEADER_LEN))) {
+	if(0 == (page->header = safe_malloc_(OGG_MAX_HEADER_LEN))) {
 		encoder->protected_->state = FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR;
 		return false;
 	}
@@ -141,10 +142,10 @@ FLAC__bool simple_ogg_page__get_at(FLAC__StreamEncoder *encoder, FLAC__uint64 po
 		return false;
 
 	{
-		unsigned i;
+		uint32_t i;
 
 		/* check to see that it specifies a single packet */
-		for(i = 0; i < (unsigned)page->header[26] - 1; i++) {
+		for(i = 0; i < (uint32_t)page->header[26] - 1; i++) {
 			if(page->header[i + OGG_HEADER_FIXED_PORTION_LEN] != 255) {
 				encoder->protected_->state = FLAC__STREAM_ENCODER_OGG_ERROR;
 				return false;
@@ -155,7 +156,7 @@ FLAC__bool simple_ogg_page__get_at(FLAC__StreamEncoder *encoder, FLAC__uint64 po
 	}
 
 	/* allocate space for the page body */
-	if(0 == (page->body = (unsigned char *)safe_malloc_(page->body_len))) {
+	if(0 == (page->body = safe_malloc_(page->body_len))) {
 		encoder->protected_->state = FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR;
 		return false;
 	}

@@ -22,7 +22,8 @@ const IID IID_IAudioStreamVolume = __uuidof(IAudioStreamVolume);
 CSoundDevice::CSoundDevice(CSoundDeviceHoster* parent)
 {
   this->parent = parent;
-  memset(currentVolume, 0, sizeof(currentVolume));
+  for (size_t i = 0; i < (sizeof(currentVolume) / sizeof(float)); i++)
+    currentVolume[i] = 1;
   hEventCreateDone = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventDestroyDone = CreateEvent(NULL, TRUE, FALSE, NULL);
   hEventResetDone = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -183,7 +184,7 @@ bool CSoundDevice::GetAllAudioOutDeviceInfo(CSoundDeviceAudioOutDeviceInfo** out
 
   for (size_t i = 0; i < pDeviceCount; i++)
   {
-    if (SUCCEEDED(pEndpoints->Item(i, &pDevice))) {
+    if (SUCCEEDED(pEndpoints->Item(static_cast<UINT>(i), &pDevice))) {
 
       LPWSTR outId;
       DWORD state;

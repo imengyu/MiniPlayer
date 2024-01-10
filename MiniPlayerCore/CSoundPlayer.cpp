@@ -337,7 +337,6 @@ void CSoundPlayerImpl::WorkerThread(CSoundPlayerImpl* self) {
 		Sleep(50);
 	}
 
-EXIT:
 	self->workerQueue.Clear();
 	self->eventWorkerThreadQuit.NotifyOne();
 }

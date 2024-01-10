@@ -249,8 +249,8 @@ bool StringHelper::EndWith(const wchar_t* str1, const wchar_t* str2)
 {
 	if (str1 == nullptr || str2 == nullptr)
 		return false;
-	int len1 = wcslen(str1);
-	int len2 = wcslen(str2);
+	size_t len1 = wcslen(str1);
+	size_t len2 = wcslen(str2);
 	if ((len1 < len2) || (len1 == 0 || len2 == 0))
 		return false;
 	while (len2 >= 1)
@@ -267,8 +267,8 @@ bool StringHelper::EndWith(const char* str1, const char* str2)
 {
 	if (str1 == nullptr || str2 == nullptr)
 		return false;
-	int len1 = strlen(str1);
-	int len2 = strlen(str2);
+	size_t len1 = strlen(str1);
+	size_t len2 = strlen(str2);
 	if ((len1 < len2) || (len1 == 0 || len2 == 0))
 		return false;
 	while (len2 >= 1)
@@ -322,20 +322,20 @@ std::string StringHelper::UnicodeToUtf8(std::wstring unicode)
 }
 std::wstring StringHelper::AnsiToUnicode(std::string szStr)
 {
-	int nLen = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, szStr.c_str(), -1, NULL, 0);
+	std::wstring pResult;
+	size_t nLen = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, szStr.c_str(), -1, NULL, 0);
 	if (nLen == 0)
-		return NULL;
-	std::wstring  pResult;
+		return pResult;
 	pResult.resize(nLen + 1);
-	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, szStr.c_str(), -1, (LPWSTR)pResult.data(), nLen);
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, szStr.c_str(), -1, (LPWSTR)pResult.data(), static_cast<int>(nLen));
 	return pResult;
 }
 std::wstring StringHelper::Utf8ToUnicode(std::string szU8)
 {
-	int wcsLen = ::MultiByteToWideChar(CP_UTF8, NULL, szU8.c_str(), szU8.size(), NULL, 0);
+	size_t wcsLen = ::MultiByteToWideChar(CP_UTF8, NULL, szU8.c_str(), static_cast<int>(szU8.size()), NULL, 0);
 	std::wstring wszString;
 	wszString.resize(wcsLen + 1);
-	::MultiByteToWideChar(CP_UTF8, NULL, szU8.c_str(), szU8.size(), (LPWSTR)wszString.data(), wcsLen);
+	::MultiByteToWideChar(CP_UTF8, NULL, szU8.c_str(), static_cast<int>(szU8.size()), (LPWSTR)wszString.data(), static_cast<int>(wcsLen));
 	return wszString;
 }
 
@@ -353,7 +353,7 @@ StringBuffer::~StringBuffer() {
 	bufferCurrPos = 0;
 }
 void StringBuffer::PushChars(const char* chars, int align, int size) {
-	int len = size > 0 ? size : strlen(chars);
+	int len = size > 0 ? size : static_cast<int>(strlen(chars));
 	if (len <= 0)
 		return;
 

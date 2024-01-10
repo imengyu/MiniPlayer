@@ -270,8 +270,8 @@ AVPacket* CCDecodeQueue::RequestPacket() {
 
   return packet;
 }
-void CCDecodeQueue::AllocPacketPool(int size) {
-  for (int i = 0; i < size; i++) {
+void CCDecodeQueue::AllocPacketPool(size_t size) {
+  for (size_t i = 0; i < size; i++) {
     allocedPacket++;
     if (!packetPool.push(av_packet_alloc())) {
       LOGEF("Packet Pool size too large! Size: %d", packetPool.size());
@@ -332,8 +332,8 @@ AVFrame* CCDecodeQueue::RequestFrame() {
 
   return frame;
 }
-void CCDecodeQueue::AllocFramePool(int size) {
-  for (int i = 0; i < size; i++) {
+void CCDecodeQueue::AllocFramePool(size_t size) {
+  for (size_t i = 0; i < size; i++) {
     allocedFrame++;
     if (!framePool.push(av_frame_alloc())) {
       LOGEF("Frame Pool size too large! Size: %d", framePool.size());

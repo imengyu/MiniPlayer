@@ -40,7 +40,7 @@ private:
 	int _FileSize = 0;
 	double _FileSec = 0;
 	double _CurSec = 0;
-	long cur = 0;
+	size_t cur = 0;
 
 	MMCKINFO ckIn;
 	WAVEFORMATEX m_pwfx;

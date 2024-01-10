@@ -8,7 +8,7 @@ CAppendBuffer::CAppendBuffer(void* source, size_t size)
   pos = 0;
   holder = false;
 }
-CAppendBuffer::CAppendBuffer(int size)
+CAppendBuffer::CAppendBuffer(size_t size)
 {
   this->size = size;
   buffer = new char[size];

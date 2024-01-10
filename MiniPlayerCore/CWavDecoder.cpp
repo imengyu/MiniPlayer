@@ -149,7 +149,7 @@ double CWavDecoder::SeekToSecond(double sec)
 size_t CWavDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
 	if (hStream) {
-		long l = mmioRead(hStream, (HPSTR)_Buffer, _BufferSize);
+		size_t l = mmioRead(hStream, (HPSTR)_Buffer, static_cast<LONG>(_BufferSize));
 		if (l < 0)
 			return 0;
 		cur += l;

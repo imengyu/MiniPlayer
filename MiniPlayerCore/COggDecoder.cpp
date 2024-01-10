@@ -151,13 +151,12 @@ double COggDecoder::SeekToSecond(double sec)
 size_t COggDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
 	size_t result = 0;
+	size_t bytes_read = 0;
 	BOOL CONTINUE = TRUE;
-	DWORD bytes_read = 0;
 
 	while (bytes_read < _BufferSize)
 	{
-		result = ov_read(&_OggFile, (char *)_Buffer + bytes_read,
-			_BufferSize - bytes_read, 0, 2, 1, NULL);
+		result = ov_read(&_OggFile, (char *)_Buffer + bytes_read, static_cast<int>(_BufferSize - bytes_read), 0, 2, 1, NULL);
 
 		if (result == 0)
 		{

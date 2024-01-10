@@ -15,9 +15,6 @@ const char* VERSION = "1.0.0";
 int main(int argc, const char* argv[])
 {
 	setlocale(LC_ALL, "chs");
-  return TestPCMToWav();
-
-  /*
   if (argc > 1) {
     auto args = util::argparser("A standalone video player program.");
     args.set_program_name("MiniPlayer")
@@ -48,5 +45,4 @@ int main(int argc, const char* argv[])
     return RunPlayer(path.c_str());
   }
 	return RunPlayer(nullptr);
-  */
 }

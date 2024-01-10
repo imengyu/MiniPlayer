@@ -315,7 +315,7 @@ char *strchr(), *strrchr();
 
   #if defined(_WIN32) && !defined(__MINGW32__)
     #define HAS_LRINTF
-    static INLINE int lrintf(float f)
+    /*static INLINE int lrintf(float f)
     {
         int i;
 #ifdef X64
@@ -328,7 +328,7 @@ char *strchr(), *strrchr();
         }
 #endif
         return i;
-    }
+    }*/
   #elif (defined(__i386__) && defined(__GNUC__) && \
 	!defined(__CYGWIN__) && !defined(__MINGW32__))
     #ifndef HAVE_LRINTF

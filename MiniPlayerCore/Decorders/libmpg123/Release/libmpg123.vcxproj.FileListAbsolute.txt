@@ -1,2 +1,0 @@
-D:\Programming\WinProjects\IPlayer-master\PlayerDecorders\libmpg123\Release\libmpg123.lib
-D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\libmpg123\Release\libmpg123.lib

@@ -143,7 +143,7 @@ public:
 	//参数：
 	//  * volume 音量（0.0-1.0）
 	//  * index 设置音量的通道，例如如果是双通道声音，则0为左声道，1为右声道。-1为设置所有声道音量
-	virtual void SetVolume(float volume, int index = 0) {}
+	virtual void SetVolume(float volume, int index = -1) {}
 	//获取音量
 	//参数：
 	//  * index 获取音量的通道，例如如果是双通道声音，则0为左声道，1为右声道

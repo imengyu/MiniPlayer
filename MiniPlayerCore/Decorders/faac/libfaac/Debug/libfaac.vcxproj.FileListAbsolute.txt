@@ -1,1 +1,2 @@
 D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\faac\libfaac\Debug\libfaac.lib
+D:\Programming\WinProjects\IPlayer-master\MiniPlayerCore\Decorders\faac\libfaac\Debug\libfaac.lib

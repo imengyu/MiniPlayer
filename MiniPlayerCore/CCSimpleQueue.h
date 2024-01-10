@@ -16,19 +16,19 @@ class CCSimpleQueue
 public:
 	CCSimpleQueue() {
 	}
-	CCSimpleQueue(int max_size) {
+	CCSimpleQueue(size_t max_size) {
 		alloc(max_size);
 	}
 	~CCSimpleQueue() {
 		release();
 	}
 
-	bool alloc(int max_size) {
+	bool alloc(size_t max_size) {
 		if (m_max_size > 0)
 			return false;
 		m_max_size = max_size;
 		m_stack.alloc(max_size);
-		for (int i = 0; i < m_max_size; i++)
+		for (size_t i = 0; i < m_max_size; i++)
 			m_stack.push(new CCSimpleQueueNode<T>());
 		return true;
 	}
@@ -163,27 +163,27 @@ public:
 		m_first = nullptr;
 		m_end = nullptr;
 	}
-	int size() {
+	size_t size() {
 		return m_size;
 	}
-	int capacity() {
+	size_t capacity() {
 		return m_max_size;
 	}
 	bool empty() {
 		return m_size == 0;
 	}
-	void increase(int size) {
+	void increase(size_t size) {
 		Assert(size > 0);
 		
 		m_stack.increase(size);
-		for (int i = 0; i < size; i++)
+		for (size_t i = 0; i < size; i++)
 			m_stack.push(new CCSimpleQueueNode<T>());
 		m_max_size += size;
 	}
 
 private:
-	int m_size = 0;
-	int m_max_size = 0;
+	size_t m_size = 0;
+	size_t m_max_size = 0;
 	CCSimpleStack<CCSimpleQueueNode<T>> m_stack;
 	CCSimpleQueueNode<T>* m_first = nullptr;
 	CCSimpleQueueNode<T>* m_end = nullptr;
