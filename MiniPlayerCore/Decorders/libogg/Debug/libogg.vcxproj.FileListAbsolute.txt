@@ -1,3 +1,0 @@
-D:\Code\GitHub\MiniPlayer\MiniPlayerCore\Decorders\libogg\Debug\libogg.lib
-D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\libogg\Debug\libogg.lib
-D:\Programming\WinProjects\IPlayer-master\MiniPlayerCore\Decorders\libogg\Debug\libogg.lib

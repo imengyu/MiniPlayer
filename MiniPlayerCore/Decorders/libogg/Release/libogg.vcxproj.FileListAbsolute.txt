@@ -1,2 +1,0 @@
-D:\Code\GitHub\IPlayer-master\PlayerDecorders\libogg\Release\libogg.lib
-D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\libogg\Release\libogg.lib

@@ -1,2 +1,0 @@
-D:\Code\GitHub\iplayer\MiniPlayerCore\Decorders\faad\libfaad\Debug\libfaad.lib
-D:\Programming\WinProjects\IPlayer-master\MiniPlayerCore\Decorders\faad\libfaad\Debug\libfaad.lib
