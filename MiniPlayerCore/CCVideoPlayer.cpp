@@ -892,7 +892,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
         continue;
       }
       else {
-        av_usleep(500);
+        av_usleep(1000);
       }
     }
     else if (start <= 0) {
