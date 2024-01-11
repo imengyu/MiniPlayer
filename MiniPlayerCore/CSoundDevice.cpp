@@ -92,6 +92,32 @@ UINT32 CSoundDevice::GetPosition()
   ResetEvent(hEventGetPadding);
   return numFramesPadding;
 }
+/**
+*获取所有振幅之平均值 计算db(振幅最大值 2 ^ 16 - 1 = 65535 最大值是 96.32db)
+* 16 bit == 2字节 == short int
+* 无符号16bit：96.32 = 20 * lg(65535);
+*
+* @param pcmdata 转换成char类型，才可以按字节操作
+* @param size pcmdata的大小
+* @return
+*/
+int CSoundDevice::GetPcmDB(const unsigned char* pcmdata, size_t size) {
+
+  int db = 0;
+  short int value = 0;
+  double sum = 0;
+  for (int i = 0; i < size; i += 2)
+  {
+    memcpy(&value, pcmdata + i, 2); //获取2个字节的大小（值）
+    sum += abs(value); //绝对值求和
+  }
+  sum = sum / (size / 2); //求平均值（2个字节表示一个振幅，所以振幅个数为：size/2个）
+  if (sum > 0)
+  {
+    db = (int)(20.0 * log10(sum));
+  }
+  return db;
+}
 
 CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
 {
@@ -294,11 +320,13 @@ void CSoundDevice::Stop()
   ResetEvent(hEventStopDone);
   SetEvent(hEventStop);
   WaitForSingleObject(hEventStopDone, 2000);
+  currentOutDB = MIN_VOL_DB;
 }
 bool CSoundDevice::Start()
 {
   if (!GetThreadStatus() && !Create())
-    return false;
+    return false; 
+  currentOutDB = MIN_VOL_DB;
   ResetEvent(hEventPlayDone);
   SetEvent(hEventPlay);
   WaitForSingleObject(hEventPlayDone, 2000);
@@ -463,6 +491,9 @@ RESET:
 
   // 将初始数据加载到共享缓冲区中。
   device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
+
+  //计算当前声音分贝大小
+  device->currentOutDB = device->GetPcmDB(pData, min(requestFrameCount * pwfx->nBlockAlign, 32));
 
   hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
   EXIT_ON_ERROR(hr);

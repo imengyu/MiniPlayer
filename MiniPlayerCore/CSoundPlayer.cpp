@@ -429,6 +429,13 @@ const wchar_t* CSoundPlayerImpl::GetDefaultOutputDeviceId()
 	return defaultOutputDeviceId.c_str();
 }
 
+int CSoundPlayerImpl::GetCurrentOutputDB()
+{
+	Assert(outputer);
+
+	return outputer->GetCurrentOutputDB();
+}
+
 void CSoundPlayerImpl::SetLastError(int code, const wchar_t* errmsg)
 {
 	lastErrorMessage = errmsg ? errmsg : L"";
