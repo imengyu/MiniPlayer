@@ -883,7 +883,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
         continue;
       }
       else {
-        av_usleep(1000);
+        av_usleep(500);
       }
     }
     else if (audioIndex != -1) {
@@ -892,7 +892,7 @@ void* CCVideoPlayer::DecoderWorkerThread() {
         continue;
       }
       else {
-        av_usleep(5000);
+        av_usleep(500);
       }
     }
     else if (start <= 0) {

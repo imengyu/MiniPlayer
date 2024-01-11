@@ -80,6 +80,7 @@ void DoPlayVideo(wchar_t* strFilename, READ_VIDEO_INFO*info) {
 	params.UseRenderCallback = false;
 	params.UseHadwareDecoder = true;
 	params.SyncRender = true;
+	params.SyncVideoAndAudio = false;
 
 	CCVideoPlayerAbstract* player = CreateVideoPlayer(&params);
 
