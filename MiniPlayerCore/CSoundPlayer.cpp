@@ -429,7 +429,7 @@ const wchar_t* CSoundPlayerImpl::GetDefaultOutputDeviceId()
 	return defaultOutputDeviceId.c_str();
 }
 
-int CSoundPlayerImpl::GetCurrentOutputDB()
+int* CSoundPlayerImpl::GetCurrentOutputDB()
 {
 	Assert(outputer);
 

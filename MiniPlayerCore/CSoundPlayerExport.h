@@ -114,7 +114,7 @@ public:
 
 	//获取当前播放器输出的声音分贝值
 	//返回值：声音分贝值
-	virtual int GetCurrentOutputDB() { return 0; }
+	virtual int* GetCurrentOutputDB() { return nullptr; }
 
 	//获取当前播放进度
 	//返回值：播放进度（单位秒）

@@ -61,7 +61,7 @@ public:
   void SetVolume(int index, float value);
 
   int GetPcmDB(const unsigned char* pcmdata, size_t size);
-  int GetCurrentOutputDB() { return currentOutDB; }
+  int* GetCurrentOutputDB() { return currentOutDB; }
   UINT32 GetPosition();
   UINT32 GetBufferSize() { return bufferFrameCount; }
 
@@ -77,7 +77,7 @@ private:
   bool isStarted = false;
   bool shouldReSample = false;
   float currentVolume[5];
-  int currentOutDB = MIN_VOL_DB;
+  int currentOutDB[2] = { MIN_VOL_DB, MIN_VOL_DB };
   UINT32 bufferFrameCount = 0;
   UINT32 numFramesPadding = 0;
   std::mutex threadLock;

@@ -43,7 +43,7 @@ public:
 	int GetBitPerSample() { return currentBitsPerSample; }
 	int GetChannelsCount() { return currentChannels; }
 	const wchar_t* GetDefaultOutputDeviceId();
-	int GetCurrentOutputDB();
+	int* GetCurrentOutputDB();
 
 	unsigned int GetDurationSample();
 	unsigned int GetPositionSample();

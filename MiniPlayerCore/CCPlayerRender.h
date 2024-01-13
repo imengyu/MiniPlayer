@@ -34,6 +34,7 @@ public:
   int64_t GetCurVideoPts() { return curVideoPts; }
   int64_t GetCurAudioDts() { return curAudioDts; }
   int64_t GetCurAudioPts() { return curAudioPts; }
+  int* GetCurrentOutPutDB();
 
   bool NoMoreVideoFrame() { return noMoreVideoFrame; }
 

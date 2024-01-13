@@ -352,7 +352,7 @@ CM_API_RESULT* FloatPCMArrayToWavFile(const char* output_file, float* pcm_data, 
 	while (pcmPos < pcmCount)
 	{
 		//¿½±´Êý¾ÝÖÁframe
-		for (size_t i = 0; i < nb_channels * nb_samples; i++) {
+		for (size_t i = 0; i < (size_t)(nb_channels * nb_samples); i++) {
 			if (pcmStartPos > 0) {
 				pcmStartPos--;
 				((int16_t*)frame_data[0])[i] = 0;

@@ -1207,6 +1207,9 @@ void CCVideoPlayer::SyncRenderEnd() {
     return;
   render->SyncRenderEnd();
 }
+void CCVideoPlayer::SyncRenderDropPack(int count) {
+
+}
 
 //更新画面缓冲区大小
 void CCVideoPlayer::RenderUpdateDestSize(int width, int height) {
@@ -1215,6 +1218,12 @@ void CCVideoPlayer::RenderUpdateDestSize(int width, int height) {
   render->UpdateDestSize();
 }
 
+int* CCVideoPlayer::GetCurrentOutPutDB()
+{
+  if (render)
+    return render->GetCurrentOutPutDB();
+  return nullptr;
+}
 AVPixelFormat CCVideoPlayer::GetVideoPixelFormat()
 {
   return hw_frame_pix_fmt != AVPixelFormat::AV_PIX_FMT_NONE ? 

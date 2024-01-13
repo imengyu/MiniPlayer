@@ -80,9 +80,11 @@ public:
 
     CCVideoPlayerCallbackDeviceData* SyncRenderStart(); 
     void SyncRenderEnd();
+    void SyncRenderDropPack(int count);
 
     void RenderUpdateDestSize(int width, int height);
 
+    int* GetCurrentOutPutDB();
     AVPixelFormat GetVideoPixelFormat();
 
     int PostWorkerThreadCommand(int command, void* data);

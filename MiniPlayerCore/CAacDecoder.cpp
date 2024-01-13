@@ -243,7 +243,7 @@ size_t CAacDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
 	size_t offest = cur_sample * sample_rate*GetBitsPerSample() / 8;
 	size_t curmax = offest + _BufferSize;
-	if (curmax > this->_BufferSize) {
+	if (curmax > (size_t)this->_BufferSize) {
 		size_t out = curmax - this->_BufferSize;
 		memcpy_s(_Buffer, _BufferSize, _PCMBuffer + offest, out);
 		return out;

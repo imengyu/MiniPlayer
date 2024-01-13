@@ -285,6 +285,12 @@ public:
   */
   virtual int GetVideoVolume() { return 0; }
   /*
+  * 获取播放器的输出
+  * 返回值：
+  *   分贝值 int数组，2个分别是左/右声道
+  */
+  virtual int* GetCurrentOutPutDB() { return nullptr; }
+  /*
   * 获取视频
   * 输出参数：
   *   * w: 视频的宽度
@@ -316,6 +322,10 @@ public:
   * 同步渲染结束
   */
   virtual void SyncRenderEnd() {}
+  /*
+  * 手动丢包
+  */
+  virtual void SyncRenderDropPack(int count) {}
 
   /*
   * 渲染器更新输出缓冲区大小

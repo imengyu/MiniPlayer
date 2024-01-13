@@ -41,9 +41,15 @@ void DoPlaySound(wchar_t* strFilename) {
 			auto state = player->GetState();
 			while (state != TPlayerStatus::PlayEnd)
 			{
-				for (int i = 0; i < 7; i++)
-					putchar('\b');
-				wprintf(L"%7.3f", player->GetPosition());
+				printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+				wprintf(L"%7.3f/%7.3f", player->GetPosition(), player->GetDuration());
+
+				auto db = player->GetCurrentOutputDB();
+				if (db) {
+					wprintf(L"L:%3d R:%3d", db[0], db[1]);
+					printf("\b\b\b\b\b\b\b\b\b\b\b");
+				}
+
 				Sleep(250);
 
 				if (state == TPlayerStatus::NotOpen) {

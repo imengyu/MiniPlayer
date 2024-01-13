@@ -101,22 +101,29 @@ UINT32 CSoundDevice::GetPosition()
 * @param size pcmdata的大小
 * @return
 */
-int CSoundDevice::GetPcmDB(const unsigned char* pcmdata, size_t size) {
+int CSoundDevice::GetPcmDB(const unsigned char* _pcmdata, size_t _size) {
 
-  int db = 0;
-  short int value = 0;
-  double sum = 0;
-  for (int i = 0; i < size; i += 2)
-  {
-    memcpy(&value, pcmdata + i, 2); //获取2个字节的大小（值）
-    sum += abs(value); //绝对值求和
+  const int16_t* pcmdata = (int16_t*)_pcmdata;
+  const size_t size = _size / 2;
+
+  double sumDB = 0;
+
+  for (size_t i = 0; i < size; i += 2) {
+    double soundDB = soundDB = 20 * log10((double)pcmdata[i] / SHRT_MAX);
+    sumDB += isnan(soundDB) ? MIN_VOL_DB : soundDB;
   }
-  sum = sum / (size / 2); //求平均值（2个字节表示一个振幅，所以振幅个数为：size/2个）
-  if (sum > 0)
-  {
-    db = (int)(20.0 * log10(sum));
+
+  currentOutDB[0] = static_cast<int>(sumDB / (size / 2));
+
+  sumDB = 0;
+
+  for (size_t i = 1; i < size; i += 2) {
+    double soundDB = soundDB = 20 * log10((double)pcmdata[i] / SHRT_MAX);
+    sumDB += isnan(soundDB) ? MIN_VOL_DB : soundDB;
   }
-  return db;
+
+  currentOutDB[1] = static_cast<int>(sumDB / (size / 2));
+  return 0;
 }
 
 CSoundDeviceDeviceDefaultFormatInfo& CSoundDevice::RequestDeviceDefaultFormatInfo()
@@ -320,13 +327,15 @@ void CSoundDevice::Stop()
   ResetEvent(hEventStopDone);
   SetEvent(hEventStop);
   WaitForSingleObject(hEventStopDone, 2000);
-  currentOutDB = MIN_VOL_DB;
+  currentOutDB[0] = MIN_VOL_DB;
+  currentOutDB[1] = MIN_VOL_DB;
 }
 bool CSoundDevice::Start()
 {
   if (!GetThreadStatus() && !Create())
-    return false; 
-  currentOutDB = MIN_VOL_DB;
+    return false;
+  currentOutDB[0] = MIN_VOL_DB;
+  currentOutDB[1] = MIN_VOL_DB;
   ResetEvent(hEventPlayDone);
   SetEvent(hEventPlay);
   WaitForSingleObject(hEventPlayDone, 2000);
@@ -493,7 +502,7 @@ RESET:
   device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
 
   //计算当前声音分贝大小
-  device->currentOutDB = device->GetPcmDB(pData, min(requestFrameCount * pwfx->nBlockAlign, 32));
+  device->GetPcmDB(pData, min(requestFrameCount * pwfx->nBlockAlign, 128));
 
   hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
   EXIT_ON_ERROR(hr);
@@ -560,6 +569,9 @@ RESET:
         //读取
         hasMoreData = device->copyDataCallback(device->parent, pData, requestFrameCount * pwfx->nBlockAlign, requestFrameCount);
 
+        //计算当前声音分贝大小
+        device->GetPcmDB(pData, min(requestFrameCount * pwfx->nBlockAlign, 128));
+
         hr = pRenderClient->ReleaseBuffer(requestFrameCount, flags);
         EXIT_ON_ERROR(hr);
       }
@@ -569,6 +581,10 @@ RESET:
 
         memset(pData, 0, numFramesAvailable * pwfx->nBlockAlign);
         hasMoreData = true;
+
+        //计算当前声音分贝大小
+        device->currentOutDB[0] = 0;
+        device->currentOutDB[1] = 0;
 
         hr = pRenderClient->ReleaseBuffer(numFramesAvailable, flags);
         EXIT_ON_ERROR(hr)

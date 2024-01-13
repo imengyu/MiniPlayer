@@ -171,6 +171,13 @@ void CCPlayerRender::Reset() {
   curAudioPts = 0;
 }
 
+int* CCPlayerRender::GetCurrentOutPutDB()
+{
+  if (audioDevice)
+    return audioDevice->GetCurrentOutputDB();
+  return nullptr;
+}
+
 void CCPlayerRender::SetVolume(int vol) {
   currentVolume = vol;
   if (audioDevice)
