@@ -103,9 +103,9 @@ bool CWavDecoder::Open(const wchar_t* file)
 }
 bool CWavDecoder::Close()
 {
-	if (0 != mmioAscend(hStream, &ckIn, 0))
-		return false;
 	if (!hStream)
+		return false;
+	if (0 != mmioAscend(hStream, &ckIn, 0))
 		return false;
 	return mmioClose(hStream, 0)==0;
 }
@@ -149,7 +149,7 @@ double CWavDecoder::SeekToSecond(double sec)
 size_t CWavDecoder::Read(void * _Buffer, size_t _BufferSize)
 {
 	if (hStream) {
-		size_t l = mmioRead(hStream, (HPSTR)_Buffer, static_cast<LONG>(_BufferSize));
+		auto l = mmioRead(hStream, (HPSTR)_Buffer, static_cast<LONG>(_BufferSize));
 		if (l < 0)
 			return 0;
 		cur += l;
