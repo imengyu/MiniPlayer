@@ -392,10 +392,12 @@ bool CSoundPlayerImpl::OnCopyData(CSoundDeviceHoster* instance, LPVOID buf, DWOR
 	auto player = dynamic_cast<CSoundPlayerImpl*>(instance);
 	auto read_size = player->decoder->Read(buf, buf_len);
 	if (read_size < buf_len) {
-		if (player->IsPreLoad() && player->preloadDecoder)
-			//有预加载，则直接切换预加载加载这一段空数据
-			player->preloadDecoder->Read((void*)((size_t)buf + read_size), buf_len - read_size);
-		else 
+
+		if (player->IsPreLoad() && player->preloadDecoder) //有预加载，则直接切换预加载加载这一段空数据
+			read_size += player->preloadDecoder->Read((void*)((size_t)buf + read_size), buf_len - read_size);
+	
+		//填充剩余缓冲区
+		if (read_size < buf_len)
 			memset((void*)((size_t)buf + read_size), 0, buf_len - read_size);
 		return false;
 	}
